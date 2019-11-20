@@ -1,0 +1,2629 @@
+---
+title: "Time Series Analysis Module"
+author: "Institutul National de Sanatate Publica (INSP), Bucharest, Romania"
+geometry: margin=2cm
+output:
+  # pdf_document:
+  #   dev: cairo_pdf
+  #   fig_width: 12
+  #   highlight: haddock
+  #   includes:
+  #     in_header: preamble_latex.tex
+  #   keep_tex: yes
+  #   latex_engine: pdflatex
+  #   toc: yes
+  # html_document:
+  #   dev: svg
+  #   fig_width: 12
+  #   toc: yes
+  word_document:
+    fig_width: 12
+    highlight: haddock
+    toc: yes
+linkcolor: blue
+linestretch: 1.15
+fontsize: 12pt
+---
+
+```{r setup, include=FALSE}
+rm(list=ls())
+library(knitr)
+library(memisc)
+library(pander)  # Use GitHub version 0.6.0 addressing memisc issue
+# devtools::install_github('Rapporter/pander')
+library(rmdformats)
+opts_chunk$set( 
+  echo = TRUE,
+  # eval = FALSE,  # Uncomment to remove R output
+  # cache = TRUE,  # Uncomment after changes to code
+  prompt = FALSE,
+  warning = FALSE,
+  message = FALSE)
+opts_knit$set(width=80)
+options(max.print="80")
+options(scipen=6)
+```
+
+> Version 6.0, November 2015
+
+## Disclaimer
+
+The information presented in this exercise and the
+associated data files have been deliberately changed so as to facilitate
+the acquisition of the expected learning outcomes for fellows of EPIET
+and EPIET-associated programmes of cohort 20 (cohort 2014).
+
+This case study was first introduced in 2011 and has been being adapted ever since
+(see Copyright and Licence agreement for more detailed information).
+
+# Copyright and License
+
+## Source
+
+This case study was first designed by Alicia Barrasa Blanco and Ioannis
+Karagiannis in 2011 for the training needs of EPIET, PAE, NorFETP and
+Austrian FETP fellows of Cohort 16 (2010).
+
+## Revisions
+
+November 2012: No major changes.
+
+November 2013: Removal of the Legionnaire's disease in the Netherlands
+case study; removal of the acute respiratory infections in Peru exercise
+and substitution with the mortality in Spain one; substitution of the
+pergram with the epergram command.
+
+November 2014: Major stylistic changes throughout; removal of the
+Puumala virus example; inclusion of information reminders in bubbles
+throughout; *Salmonella* exercise made optional; adjustment of learning
+objectives; removal of the prediction, and forecasting parts; loops in
+Stata made optional.
+
+April 2015: Adjusted for delivery in a three-day module, including an
+adaptation of the expected learning outcomes; removal of the measles
+example; minor stylistic changes throughout; removal of the manual way
+of computing moving averages; removal of parts 2 and 3 under outbreak
+detection; removal of the loops in Stata.
+
+November 2015: Re-adaptation to a five-day module; minor stylistic
+changes throughout; major adaptation of the expected learning outcomes
+to strengthen the link with routine work in and evaluation of
+surveillance systems; introduction of the isoweek command in Stata;
+reintroduction of forecasting and prediction; introduction of ARIMA
+models, evaluation of interventions using surveillance data,
+capture-recapture studies in evaluating a surveillance systems
+sensitivity.
+
+**October 2016: Adaptation to R; minor changes throughout. ARIMA models,
+capture-recapture studies left out.**
+
+You are free:
+
+- **to Share** to copy and distribute the work
+
+-  **to Remix** to adapt and build upon the material
+
+Under the following conditions:
+
+- **Attribution** You must attribute the work in the manner
+specified by the author or licensor (but not in any way that suggests
+that they endorse you or your use of the work). The best way to do this
+is to keep as it is the list of contributors: sources, authors and
+reviewers.
+
+- **Share Alike** If you alter, transform, or build upon this
+work, you may distribute the resulting work only under the same or
+similar license to this one. Your changes must be documented. Under that
+condition, you are allowed to add your name to the list of contributors.
+
+- **Notification** If you use the work in the manner specified
+by the author or licensor, notify Ioannis Karagiannis
+([ioannis.karagiannis@phe.gov.uk](mailto:Ioannis.karagiannis@phe.gov.uk))
+and Alicia Barrasa Blanco ([alicia@isciii.es](mailto:alicia@isciii.es)).
+
+You cannot sell this work alone but you can use it as part of
+teaching with the understanding that:
+
+- **Waiver** Any of the above conditions can be
+    [**waived**](http://creativecommons.org/licenses/by-sa/3.0/) if you get
+    permission from the copyright holder.
+- **Public Domain** Where the work or any of its elements is in
+    the [**public domain**](http://wiki.creativecommons.org/Public_domain)
+    under applicable law, that status is in no way affected by the license.
+- **Other Rights** In no way are any of the following rights
+    affected by the license:
+    - Your fair dealing or [**fair use**](http://wiki.creativecommons.org/Frequently_Asked_Questions#Do_Creative_Commons_licenses_affect_fair_use.2C_fair_dealing_or_other_exceptions_to_copyright.3F) rights, or other applicable copyright exceptions and limitations;
+    - The author's [**moral**](http://wiki.creativecommons.org/Frequently_Asked_Questions#I_don.E2.80.99t_like_the_way_a_person_has_used_my_work_in_a_derivative_work_or_included_it_in_a_collective_work.3B_what_can_I_do.3F)
+rights;
+    - Rights other persons may have either in the work itself or in how the work is used, such as [**publicity**](http://wiki.creativecommons.org/Frequently_Asked_Questions#When_are_publicity_rights_relevant.3F) or privacy rights.
+
+- **Notice** For any reuse or distribution, you must make clear
+to others the license terms of this work by keeping together this work
+and the current license.
+
+This licence is based on [**http://creativecommons.org/licenses/by-sa/3.0/**](http://creativecommons.org/licenses/by-sa/3.0/).
+
+
+# Guide to the exercises
+
+The case study is designed for use with R version 3.3.0 or later.
+
+## Nomenclature
+
+| Formatting | Meaning |
+|-------------------|-----------------------------|
+| **mortality.dta** | Name of data set to be used |
+| `cases` | Variable name |
+| `##` | Indicates lines of R output |
+
+Comments on analytical code are shown as bullet points following the code (following the output if the output is shown).
+
+## Prerequisites
+
+Participants are expected to have experience in working with
+surveillance data, and to have some familiarity with data management and
+multivariable analysis in R.
+
+R packages are bundles of functions which extend the capability of R. Thousands of add-on packages are available in the main online repository (known as [CRAN](https://cran.r-project.org/)) and many more packages in development can be found on [GitHub](https://github.com/search?q=R&type=Repositories). They may be installed and updated over the Internet.
+
+We will mainly use packages which come ready installed with R, but where it makes things easier we will use add-on packages. All the R packages you need for the exercises can be installed over the Internet with the following lines of code. 
+
+```{r install.packages, eval=FALSE}
+required_packages <- c('broom', 'car', 'ggplot2', 'haven', 
+                       'ISOweek', 'lubridate', 'MASS', 'pander',  
+                       'readxl', 'reshape2', 'TSA', 'zoo')
+install.packages(required_packages)
+```
+
+Run the following code at the beginning of each of the training days to make sure that you have made available all the packages and functions that you need. Be sure to include it in any scripts too. 
+
+```{r library}
+# Packages required
+required_packages <- c('broom', 'car', 'ggplot2', 'haven', 
+                       'ISOweek', 'lubridate', 'MASS', 'pander',  
+                       'readxl', 'reshape2', 'TSA', 'zoo')
+for(i in seq(along = required_packages))
+  library(required_packages[i], character.only = TRUE)
+
+# Function to create Stata weekly date
+stataweekdate <- function(year, week){
+  (year - 1960) * 52 + week - 1
+}
+
+# Function to create Stata year and week numbers
+statawofd <- function(date){
+  if(!is.Date(date)) stop('date should be a Date.')
+  dateposix <- as.POSIXlt(date)
+  dayofyear <- dateposix$yday
+  week <- floor(dayofyear/7) + 1
+  week[week %in% 53] <- 52
+  year <- dateposix$year + 1900
+  list(year=year, week=week)
+}
+
+# Function to tidy glm regression output
+glmtidy <- function(x, caption=''){ 
+  pander(tidy(x, exponentiate=TRUE, conf.int=TRUE),
+              caption=caption)
+}
+
+# Function to tidy glm regression statistics
+glmstats <- function(x){
+  pander(glance(x))
+}
+```
+
+R and Stata have minor differences in default settings and methods. In this document we will follow the the Stata analysis as closely as possible, but small and usually unimportant differences may be noted between the statistical findings in R and those in Stata. At some points additional steps (which would usually be optional in R) will be taken to produce output which is comparable to that of Stata. For example, to follow the Stata practice of representing weekly dates in regression  models as the number of weeks since the 1st January 1960, we provide the `stataweekdate` function above to calculate this from year and week.
+
+The Stata `wofd` function converts dates to a definition of week which ensures 52 weeks in every year. The first week of the year always starts on 1st January and the last week of the year has 8 days (or 9 days in leap years). This is peculiar to Stata and has no direct equivalent in R or other analytical software, although it is possible to create your own R function to create Stata weeks (see the `statawofd` function above). It is often preferable to use another definition of week, such as [ISO week](https://en.wikipedia.org/wiki/ISO_week_date).
+
+R can read in Stata .dta data sets using the `read_dta` command in the `haven` package.
+
+The `glmtidy` function above formats R `glm` regression output more simply and will be used later on. The `glmstats` function tabulates key model-associated statistics.
+
+R comes with a number of in-built data sets. Use `data()` to see what is available. Some of these data sets are time series; for an example, see what `help(Nile)` and `plot(Nile)` give you.
+
+R can hold one or many data sets in memory simultaneously, so there is usually no need to save intermediate files or close and re-open data sets. 
+
+# Practical Session 1: Managing and plotting surveillance data
+
+**Expected learning outcomes**
+
+By the end of the session, participants should be able to:
+
+- import surveillance data into R
+
+- manage surveillance data sets with different date formats in R
+
+- plot surveillance data against time
+
+You have been provided with an Excel file (**TSA practice1_nov2016.xls**) with sheets called "dis1" (*Salmonella data*), "dis2" (measles in New York) and "dis3" (acute respiratory infection in Peru); and one Stata file called **puumala.dta** (Puumala virus infections). Make sure that these files are in your working directory, or that you have changed your working directory to where they are.
+
+- If you are not sure where your current working directory is, you can find out using the `getwd()` command. 
+- To change your working directory, use the `setwd()` command, giving the full path. Paths can be given in two ways in R, with single forward slashes as in `setwd('C:/Users/paul.cleary/Desktop')` (preferred) or with doubled backslashes as in `setwd('C:\\Users\\paul.cleary\\Desktop')` (which will only work on Windows).
+
+Import your data to R from these Excel files:
+
+```{r}
+salmo <- read_excel('TSA practice1_nov2016.xls', 'dis1')
+summary(salmo)
+```
+
+```{r}
+measles <- read_excel('TSA practice1_nov2016.xls', 'dis2')
+summary(measles)
+```
+
+```{r}
+ari <- read_excel('TSA practice1_nov2016.xls', 'dis3')
+summary(ari)
+```
+
+- The `read_excel` command from the `readxl` package reads data from a specific Excel worksheet into memory. [^tibble]
+- Run the command `library(help=readxl)` to learn more about the functions in the `readxl` package. How many functions/commands are in the `readxl` package?
+- Use `?read_excel` to open the help file on the `read_excel` command. 
+- The `summary` command, when given a data frame, will provide a quick summary of each variable.
+
+[^tibble]: Strictly speaking the `readxl` function reads data into a "tibble", which is a data frame modified to work with other packages by the same author. However this makes little practical difference here. 
+
+Start with the **salmo** data:
+
+```{r viewsalmo, eval=FALSE}
+View(salmo)
+```
+
+- The `View` command opens a window to show a specified data set. You can alternatively use the `head` command to view the first rows of data in the console. 
+
+There is one variable for the year and one for the week. We can convert it to the number of weeks since 1st January 1960 (for use in regression models, to get similar results to Stata) using the `stataweekdate` function provided above.
+
+```{r}
+salmo$date <- with(salmo, stataweekdate(year, week))
+head(salmo$date, 10)
+```
+
+- The `head` command lists the first values of a variable, or the first rows of a data set. Here it is showing the first 10 values of the `date` variable. There is also a `tail` command to list the last values or rows.
+
+You can see how the number of *Salmonella* cases is distributed in time using the `plot` command after telling R that this is time series data, as shown below.
+
+```{r}
+salmoz <- zooreg(salmo$cases, start=c(1981, 1), frequency=52)
+plot(salmoz, ylab='Cases', main='Salmonella data')
+```
+
+- It is usually better to aggregate your own data from the dates, but if you are given aggregated data the above is the best way to create a time series in R.
+- The `zooreg` command from the `zoo` package creates a regular time series; that is, a series of ordered observations at regularly-spaced intervals. 
+- To create a `zooreg` time series you specify the start date (here the first week of 1981) and that it is weekly data (if monthly data we would use `frequency=12` and if quarterly data you would use `frequency=4`).
+- R has an in-built `ts` command for representing time series data which is suitable for many time series analyses, but for ease of data manipulation and handling of missing or duplicated data we recommend routinely using `zoo` time series. 
+- Note from the plot that there are missing values in the data. The `zoo` package offers several ways of handling these, such as dropping them, filling them with a default value or interpolating missing values from other data. See e.g. the `na.locf` function, which will fill a missing value with the last non-missing value ("last observation carried forward") or `na.approx` which will use linear interpolation (inferring missing values by drawing a straight line between the adjoining non-missing values). 
+
+If you prefer the `ggplot2` package, you can use this for `zoo` time series, e.g.:
+
+```{r}
+autoplot(salmoz) +
+  scale_x_continuous(breaks=1980:1990, minor_breaks=1) +
+  labs(x='Index', y='Cases', title='Salmonella data')
+```
+
+As the focus of this training is on understanding principles of time series analysis rather than visualisation of time series, we will mainly use the `plot` command for the remaining exercises. 
+
+Continue with the **ari** database:
+
+```{r}
+ariz <- zooreg(ari[, 3:5], start=c(2003, 1), frequency=52)
+plot(ariz, main='Acute respiratory infection')
+```
+
+- Here we select columns 3 to 5 of the **ari** data set for this time series, which therefore contains three variables.
+- Note how these are plotted separately. If you would like a single plot, use the command `plot(ariz, plot.type='single', col=1:3)`. (We have added a `col` option to give each of the lines a different colour). 
+- If you prefer to use `autoplot` instead of `plot`, you can plot multiple time series on a single plot with e.g. `autoplot(ariz, facets=NULL)`.
+
+**NB: Note that the `dis3`/`ari` data contains multiple observations for each week and so requires aggregation before further analysis. The plot produced above is incorrect; you can see that the time series appears to extend into the future. Aggregation will be covered later.**
+
+Now open **puumala.dta**. We can use the `read_dta` command from the R package `foreign` to read data stored by Stata.
+
+Here you have one variable for the year, one variable for the month and one variable with the complete date in days, but in a string format.
+
+```{r}
+puumala <- read_dta('puumala.dta')
+head(puumala)
+```
+
+```{r}
+summary(puumala)
+```
+
+With the complete date you can generate ISO weeks, but first you need the date variable to be converted from text to something R recognises as a date.[^dmy]
+
+```{r}
+puumala$date_Date <- as.Date(puumala$date_str, '%d/%m/%Y')
+head(puumala$date_Date, 10)
+```
+
+[^dmy]: The `lubridate` package has a number of convenient functions for converting text strings to dates. Here you could alternatively use: `puumala$date_Date <- dmy(puumala$date_str)`
+
+- The `'%d/%m/%Y'` indicates to the `as.Date` function that the `date_str` variable contains a 2-digit day of month (01-31), a 2-digit month number (01-12) and a four-digit year, in that order, separated by forward slashes. Read the help for `strftime` to learn about different date formats (`?strftime`).
+
+To convert to ISO week, we can use the `ISOweek` function from the `ISOweek` package,[^why_ISOweek] which creates a new variable representing the ISO week. We could then also create a new variable representing the first Monday of each ISO week. 
+
+[^why_ISOweek]: Although the popular `lubridate` package has an `isoweek` function (there is also a similar function in the `surveillance` package), we use the `ISOweek` package here as it has the `ISOweek2date` function. If epidemiological weeks are required, use the `EpiWeek` package.
+
+```{r}
+puumala$date_isowk <- ISOweek(puumala$date_Date)
+puumala$isodate <- ISOweek2date(paste(puumala$date_isowk,
+                                      '-1', sep=''))
+head(puumala)
+```
+
+- The `paste` command concatenates text. 
+- Here we are adding "-01" onto the end of the ISO week variable (which is formatted something like "1995-W01"), to indicate that we want the first day of that week, and then supplying that to the `ISOweek2date` function, which converts that to a date.
+
+Have a look at the new variables that have been created. `date_isowk` is the ISO week variable, in string format, and `isodate` is the Monday of each ISO week. Note that the years 1998 and 2004 each have an ISO week 53.
+
+You have several observations in the same week since you have data from different days and one value corresponds to one case. Use the `aggregate` command to aggregate the data.
+
+```{r}
+puumala$case <- 1
+puumala2 <- aggregate(case ~ isodate, sum, data=puumala)
+head(puumala2)
+```
+
+- The "formula" `case ~ isodate` indicates to the `aggregate` command that you want to sum cases by `isodate`.
+
+### Optional: measles cases in New York
+
+You have separate columns containing the counts. To plot this data, you need to first reshape your dataset to a single series of values, and then create a time series. 
+
+```{r}
+measles2 <- as.vector(t(measles[-1]))
+measlez <- zooreg(measles2, start=c(1928, 1), frequency=12)
+plot(measlez, ylab='Cases', main='Measles in New York')
+```
+
+- The first line of code takes the measles data (minus the first column which contains the year), transposes it with the `t` function (i.e. the rows become columns) and then converts that to a single series of values (called a vector in R parlance).
+
+## Mortality surveillance data in Spain: introduction to practical sessions 2 to 6
+
+The Spanish daily mortality monitoring system gathers data from a stable
+number of municipalities with computerised records of death; the system
+is representative of the population of Spain and was developed in 2004
+with the objective of identifying exceedances in mortality during the
+summer period.
+
+The Spanish National Centre for Epidemiology is responsible for the
+system, which receives data from the Ministry of Justice, the National
+Institute for Statistics and the Meteorological Agency.
+
+Sessions 2 to 5 use data from this mortality surveillance system.
+Session 6 uses data from the same system, but for only one region in
+Spain (Aragon).
+
+# Practical Session 2: Smoothing and trends
+
+**Expected learning outcomes**
+
+By the end of the session, participants are expected to be able to:
+
+- Describe, test and fit a trend in a time series (simple smoothing and regression)
+
+## Preparing your data for time-series analysis
+
+Start a new R script, name it `trends.r` and save it in your working directory. 
+
+Write all commands in the R script so that you can run (and re-run) it when needed during the exercise.
+
+Open the **mortality.dta** dataset:
+
+```{r}
+mort <- read_dta('mortality.dta')
+head(mort)
+```
+
+If you want to remember which autonomous community these codes refer to, create a labelled variable. 
+
+```{r}
+community <- c("Andalucía", "Aragón", "Asturias", "Baleares",
+               "Canarias", "Cantabria", "Castilla y León",
+               "Castilla-La Mancha", "Cataluña",
+               "Comunidad Valenciana", "Extremadura",
+               "Galicia", "Madrid", "Murcia", "Navarra",
+               "País Vasco", "La Rioja")
+mort$community2 <- factor(mort$community, labels=community)
+summary(mort)
+```
+
+- The `factor` command converts a variable to a "factor variable", which is a type of categorical variable which allows ordering and labelling of the variable. Factor variables are mainly useful for graphics and regression modelling.[^factor]
+
+[^factor]: Further information on factors can be found [here](http://www.ats.ucla.edu/stat/r/modules/factor_variables.htm).
+
+Note that you have repeated values, since you have data from different autonomous regions and from each sex. In other words, your dataset contains 17 lines per week and for males, and 17 lines per week and for females.
+
+Use the `aggregate` command to get totals for each week, using the years and weeks given:
+
+```{r}
+mortagg <- aggregate(cases ~ week + year, sum, data=mort)
+head(mortagg)
+```
+
+- The `sum` function adds up numbers.
+- The `aggregate` command is here calculating the sum of cases by week and year.
+
+Create a `zoo` time series from the total case counts and plot this.
+
+```{r}
+mortz <- zooreg(mortagg, start=c(2000, 1), frequency=52)
+plot(mortz$cases, ylab='Cases', main='Mortality')
+```
+
+- As the `mortz` time series contains more than one variable, we specify which variable we want to plot using dollar notation.
+
+## Moving averages
+
+Moving averages are simple methods to visualise the general trend of a
+series after removing some of the random day-to-day variability
+("smoothing the data"). This allows you to examine your data for periodicity and observe the general trend. Smoothing the data can facilitate visual interpretation.
+
+Moving averages replace (model) a value of a series by the arithmetical mean of nearby values. It is calculated for each observation, moving along the time axis. For example, at each time $t$, we may calculate the means of the 5 previous records.
+
+For each record, create the following various types of moving average using the `rollapply` command from the `zoo` package.
+
+- `MA5a`: the 5-week moving average, centred on cases
+
+- `MA5b`: the 5-week moving average of cases and the 4 previous weeks
+
+- `MA5c`: the 5-week moving average of the 5 previous weeks
+
+Compare results:
+
+```{r}
+MA5a <- rollapply(mortz$cases, width=5, FUN=mean,
+                  align='center')
+MA5b <- rollapply(mortz$cases, width=5, FUN=mean,
+                  align='right')
+MA5c <- rollapply(mortz$cases, width=6,
+                  FUN=function(x) mean(x[-6]),
+                  align='right')
+mortzma <- merge(cases=mortz$cases, MA5a, MA5b, MA5c)
+head(mortzma)
+```
+
+```{r ma, fig.height=8}
+plot(mortzma, plot.type='single', lty=1:4,
+     ylab='Cases', main='Moving averages')
+grid()
+legend('topright', c('Cases', 'MA5a', 'MA5b', 'MA5c'), lty=1:4,
+       title='Legend')
+```
+
+- The `rollapply` function applies functions to moving (or "rolling") windows of the data in the time series. 
+- The `width` argument gives the width of the moving window.
+- The `align` argument indicates where the time point of interest is in the moving window. Most commonly we are interested in the most recent value as a function of preceding values, for which we specify `'right'`.
+- We apply a more complicated function to get `MA5c`, taking a moving window of six values but omitting the latest value from the calculation of the average. 
+- We then use the `merge` command to combine the individual time series. 
+- The `grid` command adds gridlines at axis tick marks.
+- The `legend` command adds a legend.
+
+We observe that the calculation is similar across these various methods, but is
+not aligned to the series in the same way. `MA5a` is centred
+in the middle of the period used to calculate the mean. `MA5b` is placed
+at the end of the period. `MA5c` is placed one step forward (smoothing
+commands can be used for forecasting the following point). The "models"
+provided are similar for a 5-week window, but the lag is different.
+
+Moving average is only one way of smoothing. Other ways of smoothing
+the data to get a general idea of the trend include, for
+example, loess smoothing, where the contribution of surrounding
+observations is weighted, i.e. it is not the arithmetical mean for each
+set (window) of observations. 
+
+```{r}
+scatter.smooth(mortz$cases, ylab='Mortality',
+               main='Loess smoothing')
+```
+
+- The `scatter.smooth` command gives a scatter plot of the time series, with a superimposed smooth curve obtained using LOESS. You can change the degree of smoothing by adding a `span` option. 
+- What does `scatter.smooth(mortz$cases, ylab='Mortality', main='Loess smoothing', span=0.1)` look like?
+
+To better observe the general trend, we need to find the length of the
+moving average that will erase the seasonal component. Various lengths
+can be tried; here we have used 25, 51 and 103.
+
+```{r}
+MA25 <- rollapply(mortz$cases, width=25, FUN=mean,
+                  align='right')
+MA51 <- rollapply(mortz$cases, width=51, FUN=mean,
+                  align='right')
+MA103 <- rollapply(mortz$cases, width=103, FUN=mean,
+                  align='right')
+mortzma2 <- merge(cases=mortz$cases, MA25, MA51, MA103)
+```
+
+- You can use `View` to examine `mortzma2`.
+
+```{r ma2, fig.height=8}
+plot(mortzma2, plot.type='single', lty=1:4,
+     ylab='Cases', main='Moving averages')
+grid()
+legend('topright', c('Cases', 'MA25', 'MA51', 'MA103'), lty=1:3,
+       title='Legend')
+```
+
+Comment on the lines provided by the different smoothing windows. 
+
+Which one do you think is the best for eliminating seasonality? What would happen if you used an even greater window?
+
+## Regression: linear trend
+
+Using regression against time is a very simple way to look
+at the trends and test the slope with the Wald test provided.
+
+We will use the standard `lm` function to fit a linear regression model.
+
+```{r}
+mortz$Date <- with(mortagg, stataweekdate(year, week))
+linregmodel <- lm(cases ~ Date, data=mortz)
+names(linregmodel)
+summary(linregmodel)
+```
+
+<!-- . regress cases date -->
+
+<!--       Source |       SS       df       MS              Number of obs =     520 -->
+<!-- -------------+------------------------------           F(  1,   518) =   18.39 -->
+<!--        Model |  5491460.89     1  5491460.89           Prob > F      =  0.0000 -->
+<!--     Residual |   154673358   518  298597.217           R-squared     =  0.0343 -->
+<!-- -------------+------------------------------           Adj R-squared =  0.0324 -->
+<!--        Total |   160164819   519  308602.735           Root MSE      =  546.44 -->
+
+<!-- ------------------------------------------------------------------------------ -->
+<!--        cases |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval] -->
+<!-- -------------+---------------------------------------------------------------- -->
+<!--         date |   .6845897   .1596354     4.29   0.000     .3709772    .9982022 -->
+<!--        _cons |   3054.975   374.2351     8.16   0.000      2319.77    3790.181 -->
+<!-- ------------------------------------------------------------------------------ -->
+
+- To obtain regression results comparable to those of Stata, we calculate the number of weeks since 1st January 1960 (the `Date` variable).[^dig_at_stata]
+- The `lm` command fits a linear regression model. You can use the `names` command to see the various components of the output of the `lm` command, as above.[^str] As with data frames, you use dollar notation to access individual components.
+- Variables in R models are specified using notation along the lines of `responsevariable ~ explanatoryvariable1 + explanatoryvariable2` etc.[^wr] 
+- `summary`, when given the results of fitting a linear regression model, will provide a summary of the fitted trend and associated statistics. 
+
+[^dig_at_stata]: Do you think that change in mortality *per week* is really of interest? What else could you do?
+[^str]: The `str` command is also often useful for looking at the "structure" of the output of an R function.
+[^wr]: This is called Wilkinson-Rogers notation; see <http://www.physiol.ox.ac.uk/~raac/R.shtml> for more details. `~` is called a "tilde". 
+
+Identify and interpret the intercept and the trend. 
+
+Plot the fitted values against the observed ones. 
+
+```{r}
+plot(mortz$cases, ylab='Mortality',
+     main='Mortality with fitted trend')
+lines(as.vector(time(mortz)), fitted(linregmodel),
+      xlab='Index', col='green', lwd=2)
+grid()
+legend('topright', c('Data', 'Model'), col=c('black', 'green'), lwd=2)
+```
+
+- The `lines` command adds lines to an existing plot and requires $x$ and $y$ coordinates. `lwd=2` means double the line width.
+- The `as.vector` function converts the dates of the time series into something the `lines` function can use as $x$ coordinates.
+
+Could you have used a regression technique other than linear regression?
+What are the advantages and disadvantages of using linear regression
+when modelling numbers of cases of a disease?
+
+Since we are dealing with counts, you could use Poisson regression (introduced later) or, to account for possible overdispersion, negative binomial regression. We can use the `glm.nb` function from the `MASS` package for this. To present the results we use the `glm.tidy` function, introduced later. 
+
+```{r}
+nbmodel <- glm.nb(cases ~ Date, data=mortz)
+glmtidy(nbmodel)
+```
+
+<!-- . nbreg cases date, irr -->
+
+<!-- Fitting Poisson model: -->
+
+<!-- Iteration 0:   log likelihood =  -18538.24   -->
+<!-- Iteration 1:   log likelihood =  -18538.24   -->
+
+<!-- Fitting constant-only model: -->
+
+<!-- Iteration 0:   log likelihood = -4911.9941   -->
+<!-- Iteration 1:   log likelihood = -4029.0268   -->
+<!-- Iteration 2:   log likelihood = -4003.1058   -->
+<!-- Iteration 3:   log likelihood = -4000.1564   -->
+<!-- Iteration 4:   log likelihood = -4000.1492   -->
+<!-- Iteration 5:   log likelihood = -4000.1492   -->
+
+<!-- Fitting full model: -->
+
+<!-- Iteration 0:   log likelihood = -3990.4186   -->
+<!-- Iteration 1:   log likelihood = -3990.2314   -->
+<!-- Iteration 2:   log likelihood = -3990.2313   -->
+
+<!-- Negative binomial regression                      Number of obs   =        520 -->
+<!--                                                   LR chi2(1)      =      19.84 -->
+<!-- Dispersion     = mean                             Prob > chi2     =     0.0000 -->
+<!-- Log likelihood = -3990.2313                       Pseudo R2       =     0.0025 -->
+
+<!-- ------------------------------------------------------------------------------ -->
+<!--        cases |        IRR   Std. Err.      z    P>|z|     [95% Conf. Interval] -->
+<!-- -------------+---------------------------------------------------------------- -->
+<!--         date |   1.000148   .0000329     4.50   0.000     1.000083    1.000212 -->
+<!--        _cons |    3293.31   254.0455   105.00   0.000     2831.203    3830.841 -->
+<!-- -------------+---------------------------------------------------------------- -->
+<!--     /lnalpha |  -4.390631   .0629277                     -4.513967   -4.267295 -->
+<!-- -------------+---------------------------------------------------------------- -->
+<!--        alpha |   .0123929   .0007799                      .0109549    .0140197 -->
+<!-- ------------------------------------------------------------------------------ -->
+
+Again we can plot the fitted values against the data. 
+
+```{r}
+plot(mortz$cases, ylab='Mortality',
+     main='Mortality with fitted trend')
+lines(as.vector(time(mortz)), fitted(nbmodel),
+      xlab='Index', col='green', lwd=2)
+grid()
+legend('topright', c('Data', 'Model'), col=c('black', 'green'), lwd=2)
+```
+
+
+## Help for optional task 2.3.1
+
+To take the population into account, you can model it with Poisson regression (introduced later); first, you need to import the population data provided into your dataset. We will assume the population was steady each year and "jumped" to a new value on January 1st.
+
+```{r}
+mortz$pop <- 
+  rep(c(39953520, 40688520, 41423520, 42196231, 42859172,    
+        43662613,  44360521, 45236004, 45983169, 46367550), 
+      each=52)
+```
+
+- We have used the `rep` function to repeat each of the population values for each of the 52 weeks in each year.
+
+The "jump" effect has affected the predicted values, too:
+
+```{r}
+mortpoismodel <- glm(cases ~ offset(log(pop)) + Date, data=mortz, 
+                     family='poisson')
+glmtidy(mortpoismodel)
+```
+
+<!-- . poisson cases date, irr exp(population) -->
+
+<!-- Iteration 0:   log likelihood = -17898.301   -->
+<!-- Iteration 1:   log likelihood = -17898.301  (backed up) -->
+
+<!-- Poisson regression                                Number of obs   =        520 -->
+<!--                                                   LR chi2(1)      =    1694.74 -->
+<!--                                                   Prob > chi2     =     0.0000 -->
+<!-- Log likelihood = -17898.301                       Pseudo R2       =     0.0452 -->
+
+<!-- ------------------------------------------------------------------------------ -->
+<!--        cases |        IRR   Std. Err.      z    P>|z|     [95% Conf. Interval] -->
+<!-- -------------+---------------------------------------------------------------- -->
+<!--         date |   .9998236   4.28e-06   -41.17   0.000     .9998152     .999832 -->
+<!--        _cons |   .0001627   1.64e-06  -867.17   0.000     .0001596     .000166 -->
+<!-- ln(popula~n) |          1  (exposure) -->
+<!-- ------------------------------------------------------------------------------ -->
+
+```{r}
+plot(mortz$cases, ylab='Mortality',
+     main='Mortality with fitted trend')
+lines(as.vector(time(mortz)), fitted(mortpoismodel),
+      xlab='Index', col='green', lwd=2)
+grid()
+legend('topright', c('Data', 'Model'), col=c('black', 'green'), lwd=2)
+```
+
+Because of the yearly jump, the overall trend is now negative. Overall, the predicted number of deaths still rises, because the yearly jump is bigger in absolute number than the yearly effect of the negative trend.
+
+## Help for optional Task 2.3.2
+
+In the `salmo` example, an exponential trend might fit the data better.
+
+Generate a new variable `lcases` as the natural logarithm of cases:
+
+```{r}
+salmo$lcases <- log(salmo$cases)
+salmoz2 <- zooreg(salmo, start=c(1981, 1), frequency=52)
+```
+
+Plot the logarithm of the number of cases according to the time:
+
+```{r}
+plot(salmoz2$lcases, ylab='Cases (natural log scale)', 
+     main='Log Salmonella data')
+```
+
+Fit a model of `lcases` against date using linear regression. 
+
+```{r}
+logmodel <- lm(lcases ~ date, data=salmoz2)
+summary(logmodel)
+```
+
+<!-- . regress lcases date -->
+
+<!--       Source |       SS       df       MS              Number of obs =     419 -->
+<!-- -------------+------------------------------           F(  1,   417) =  796.23 -->
+<!--        Model |  630.682171     1  630.682171           Prob > F      =  0.0000 -->
+<!--     Residual |  330.297732   417  .792080891           R-squared     =  0.6563 -->
+<!-- -------------+------------------------------           Adj R-squared =  0.6555 -->
+<!--        Total |  960.979902   418  2.29899498           Root MSE      =  .88999 -->
+
+<!-- ------------------------------------------------------------------------------ -->
+<!--       lcases |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval] -->
+<!-- -------------+---------------------------------------------------------------- -->
+<!--         date |   .0099544   .0003528    28.22   0.000      .009261    .0106479 -->
+<!--        _cons |   -9.83548   .4646589   -21.17   0.000    -10.74885   -8.922114 -->
+<!-- ------------------------------------------------------------------------------ -->
+
+Plot the log data and the model against time. Note that fitted values cannot be created where the number of cases is missing. Stata seems to do linear interpolation of the fitted values to fill in the gaps, so we will do that too.
+
+```{r}
+salmoz2$ltrend[!is.na(salmoz2$lcases)] <- fitted(logmodel)
+salmoz2$ltrend <- na.approx(salmoz2$ltrend)
+plot(salmoz2$lcases, ylab='Log Salmonella cases',
+     main='Log Salmonella data with fitted trend')
+lines(salmoz2$ltrend,
+      xlab='Index', col='green', lwd=2)
+grid()
+legend('bottomright', c('Data', 'Model'), col=c('black', 'green'), lwd=2)
+
+```
+
+- We use `is.na` as above to correctly slot the fitted values back into the time series. 
+- We then use `na.approx`, mentioned above, to interpolate missing values. 
+
+Generate  a new variable (`trend`), the antilog of the prediction (`ltrend`):
+
+```{r}
+salmoz2$trend <- exp(salmoz2$ltrend)
+```
+
+Plot the real data (`cases`) and this model (`trend`) according to time:
+
+```{r}
+plot(salmoz2$cases, ylab='Salmonella cases',
+     main='Salmonella data with fitted trend')
+lines(salmoz2$trend,
+      xlab='Index', col='green', lwd=2)
+grid()
+legend('topleft', c('Data', 'Model'), col=c('black', 'green'), lwd=2)
+
+```
+
+Compare the results with those you would have got if you had used linear regression on the original data.
+
+Alternatively, you can run a Poisson or a negative binomial regression to model the data:
+
+```{r}
+salmopoismodel <- glm(cases ~ date, data=salmoz2, family='poisson')
+summary(salmopoismodel)
+```
+
+<!-- . poisson cases date -->
+
+<!-- Iteration 0:   log likelihood = -7352.4691   -->
+<!-- Iteration 1:   log likelihood = -7342.0468   -->
+<!-- Iteration 2:   log likelihood = -7342.0388   -->
+<!-- Iteration 3:   log likelihood = -7342.0388   -->
+
+<!-- Poisson regression                                Number of obs   =        419 -->
+<!--                                                   LR chi2(1)      =   28234.54 -->
+<!--                                                   Prob > chi2     =     0.0000 -->
+<!-- Log likelihood = -7342.0388                       Pseudo R2       =     0.6579 -->
+
+<!-- ------------------------------------------------------------------------------ -->
+<!--        cases |      Coef.   Std. Err.      z    P>|z|     [95% Conf. Interval] -->
+<!-- -------------+---------------------------------------------------------------- -->
+<!--         date |   .0100045   .0000712   140.55   0.000      .009865     .010144 -->
+<!--        _cons |   -9.60511   .1019175   -94.24   0.000    -9.804865   -9.405355 -->
+<!-- ------------------------------------------------------------------------------ -->
+
+- There is more on using Poisson regression later on.
+
+```{r}
+salmoz2$trend2[!is.na(salmoz2$cases)] <- fitted(salmopoismodel)
+salmoz2$trend2 <- na.approx(salmoz2$trend2)
+plot(salmoz2$cases, ylab='Salmonella cases',
+     main='Salmonella data with fitted trend')
+lines(salmoz2$trend2,
+      xlab='Index', col='green', lwd=2)
+grid()
+legend('topleft', c('Data', 'Model'), col=c('black', 'green'), lwd=2)
+```
+
+# Practical Session 3: Periodicity
+
+**Expected learning outcomes**
+
+By the end of this session, participants should be able to:
+
+- assess the existence of periodicity in surveillance data
+
+- fit and interpret models containing a trend and one or several sine and cosine curves on surveillance data to model both trend and periodicity
+
+You have already identified the existence of a trend in this
+surveillance data. You are now interested in detecting any periodicity.
+Are there any cyclical patterns in the data?
+
+## Generate a periodogram
+
+R has a number of functions which produce a periodogram - we will use the `periodogram` function from the `TSA` package here. 
+
+```{r periodogram, fig.width=6}
+mortper <- periodogram(mortz$cases)
+```
+
+- The `periodogram` command/function plots the estimated periodogram for the given time series and also returns various useful outputs as a list which we can use for other analyses.
+- This type of plot is interpreted by identifying peaks. Convert the frequencies at which peaks occur to periods by taking the reciprocal.
+
+```{r}
+with(mortper, 
+     1 / head(freq[order(-spec)], 3))
+```
+
+- The above line of code finds the frequencies with the three highest peaks in the periodogram and converts those frequencies to periods (which are numbers of weeks for this data).
+- The `order` function is used here to order the frequencies of the periodogram in reverse order (i.e. largest first) of the values of the periodogram (don't miss out the negative sign).
+
+To plot the periodogram more like the Stata `epergram` command does:
+
+```{r periodgram2, fig.width=8}
+with(mortper, 
+     plot(1/freq, log(spec), type='l',
+          xlim=c(0, 160),
+          xlab='Period', ylab='Log(density)'))
+```
+
+- Note the `xlim` option which defines the range of the $x$ axis.
+
+Is there any periodicity? If so, what is the period?
+
+## Fitting a sine curve
+
+As the periodogram shows periodicity close to 52 weeks, we will use a
+sine curve of a 52-week period. Note that periodicity with a period of
+one year is also referred to as seasonality.
+
+Fit a linear regression of `cases` with a sine predictor term:
+
+```{r}
+mortz$sin52 <- sin(2 * pi * mortz$Date / 52)
+sinemodel <- lm(cases ~ sin52, data=mortz)
+summary(sinemodel)
+```
+
+<!-- . regress cases sin52 -->
+
+<!--       Source |       SS       df       MS              Number of obs =     520 -->
+<!-- -------------+------------------------------           F(  1,   518) =   63.74 -->
+<!--        Model |  17547985.8     1  17547985.8           Prob > F      =  0.0000 -->
+<!--     Residual |   142616833   518  275322.072           R-squared     =  0.1096 -->
+<!-- -------------+------------------------------           Adj R-squared =  0.1078 -->
+<!--        Total |   160164819   519  308602.735           Root MSE      =  524.71 -->
+
+<!-- ------------------------------------------------------------------------------ -->
+<!--        cases |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval] -->
+<!-- -------------+---------------------------------------------------------------- -->
+<!--        sin52 |   259.7927   32.54122     7.98   0.000     195.8637    323.7217 -->
+<!--        _cons |   4656.573   23.01012   202.37   0.000     4611.368    4701.778 -->
+<!-- ------------------------------------------------------------------------------ -->
+
+Plot the fitted values against the original data and comment.
+
+```{r}
+plot(mortz$cases, ylab='Mortality',
+     main='Regression model: one sine term')
+lines(as.vector(time(mortz)), fitted(sinemodel),
+      xlab='Index', col='green', lwd=2)
+legend('topright', c('Data', 'Model'), col=c('black', 'green'), lwd=2)
+```
+
+## Addition of the cosine
+
+In order to have an appropriate phase in your model (you don't have to
+worry about identifying it; this will happen automatically), you need to
+use *both* a sine and a cosine curve with the same period. The sum of
+these two curves gives the periodicity for the specified period and the
+phase best describing our data.
+
+You can fit a linear model for the cases, using sine and cosine as explanatory variables. Plot the fitted values against the data and comment: 
+
+```{r}
+mortz$cos52 <- cos(2 * pi * mortz$Date / 52)
+sinecosmodel <- lm(cases ~ sin52 + cos52, data=mortz)
+summary(sinecosmodel)
+```
+
+<!-- . regress cases sin52 cos52 -->
+
+<!--       Source |       SS       df       MS              Number of obs =     520 -->
+<!-- -------------+------------------------------           F(  2,   517) =  325.63 -->
+<!--        Model |  89285169.9     2  44642584.9           Prob > F      =  0.0000 -->
+<!--     Residual |  70879649.3   517  137097.968           R-squared     =  0.5575 -->
+<!-- -------------+------------------------------           Adj R-squared =  0.5557 -->
+<!--        Total |   160164819   519  308602.735           Root MSE      =  370.27 -->
+
+<!-- ------------------------------------------------------------------------------ -->
+<!--        cases |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval] -->
+<!-- -------------+---------------------------------------------------------------- -->
+<!--        sin52 |   259.7927   22.96301    11.31   0.000     214.6804     304.905 -->
+<!--        cos52 |   525.2735   22.96301    22.87   0.000     480.1612    570.3858 -->
+<!--        _cons |   4656.573    16.2373   286.78   0.000     4624.674    4688.472 -->
+<!-- ------------------------------------------------------------------------------ -->
+
+```{r}
+plot(mortz$cases, ylab='Mortality',
+     main='Regression model: sine, cosine terms')
+lines(as.vector(time(mortz)), fitted(sinecosmodel),
+      xlab='Index', col='green', lwd=2)
+legend('topright', c('Data', 'Model'), col=c('black', 'green'), lwd=2)
+```
+
+How does the fit look graphically?
+
+Now adjust not only for periodicity, but also for trend:
+
+```{r}
+sinecostrendmodel <- lm(cases ~ sin52 + cos52 + Date,
+                        data=mortz)
+summary(sinecostrendmodel)
+```
+
+<!-- . regress cases sin52 cos52 date -->
+
+<!--       Source |       SS       df       MS              Number of obs =     520 -->
+<!-- -------------+------------------------------           F(  3,   516) =  261.88 -->
+<!--        Model |    96671544     3    32223848           Prob > F      =  0.0000 -->
+<!--     Residual |  63493275.2   516  123048.983           R-squared     =  0.6036 -->
+<!-- -------------+------------------------------           Adj R-squared =  0.6013 -->
+<!--        Total |   160164819   519  308602.735           Root MSE      =  350.78 -->
+
+<!-- ------------------------------------------------------------------------------ -->
+<!--        cases |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval] -->
+<!-- -------------+---------------------------------------------------------------- -->
+<!--        sin52 |   272.9587   21.82093    12.51   0.000     230.0899    315.8275 -->
+<!--        cos52 |   526.0699    21.7549    24.18   0.000     483.3308     568.809 -->
+<!--         date |   .7963937   .1027901     7.75   0.000     .5944552    .9983322 -->
+<!--        _cons |    2793.41   240.9689    11.59   0.000     2320.009    3266.811 -->
+<!-- ------------------------------------------------------------------------------ -->
+
+```{r}
+plot(mortz$cases, ylab='Mortality',
+     main='Regression model: trend, sine, cosine terms')
+lines(as.vector(time(mortz)), fitted(sinecostrendmodel),
+      xlab='Index', col='green', lwd=2)
+legend('topright', c('Data', 'Model'), col=c('black', 'green'), lwd=2)
+```
+
+How does the fit look now graphically?
+
+## A model with a trend plus 2 sine and 2 cosine curves
+
+To fit the model better, we could try to add more sine/cosine curves, of
+a period corresponding to the second strongest peak in the model (26
+weeks). This will allow for cycles (periods) of not only 52, but also 26
+weeks, should we think there might be half-yearly cycles which are
+relevant. In this case, for instance, there may be elevated mortality in
+winter, but also in summer during heatwaves.
+
+Generate sine and cosine terms with a period of 26 weeks and name
+them `sin26` and `cos26`. Add these two new terms to the previous model.
+Plot the results, compare with the previous model and comment on it.
+
+```{r}
+mortz$sin26 <- sin(2 * pi * mortz$Date / 26)
+mortz$cos26 <- cos(2 * pi * mortz$Date / 26)
+sine2cos2trendmodel <- lm(cases ~ sin52 + cos52 + sin26 + cos26 + Date,
+                          data=mortz)
+summary(sine2cos2trendmodel)
+```
+
+<!-- . regress cases sin52 cos52 sin26 cos26 date -->
+
+<!--       Source |       SS       df       MS              Number of obs =     520 -->
+<!-- -------------+------------------------------           F(  5,   514) =  262.12 -->
+<!--        Model |   115045892     5  23009178.4           Prob > F      =  0.0000 -->
+<!--     Residual |  45118927.3   514  87780.0143           R-squared     =  0.7183 -->
+<!-- -------------+------------------------------           Adj R-squared =  0.7156 -->
+<!--        Total |   160164819   519  308602.735           Root MSE      =  296.28 -->
+
+<!-- ------------------------------------------------------------------------------ -->
+<!--        cases |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval] -->
+<!-- -------------+---------------------------------------------------------------- -->
+<!--        sin52 |   273.3524   18.43037    14.83   0.000     237.1442    309.5605 -->
+<!--        cos52 |   526.0937   18.37452    28.63   0.000     489.9953    562.1921 -->
+<!--        sin26 |   99.58653   18.38824     5.42   0.000     63.46117    135.7119 -->
+<!--        cos26 |   246.5329   18.37452    13.42   0.000     210.4345    282.6313 -->
+<!--         date |   .8202081   .0868848     9.44   0.000     .6495151    .9909012 -->
+<!--        _cons |   2737.696   203.6818    13.44   0.000     2337.545    3137.847 -->
+<!-- ------------------------------------------------------------------------------ -->
+
+```{r}
+plot(mortz$cases, ylab='Mortality',
+     main='Regression model with trend plus 2 sine and cosine terms')
+lines(as.vector(time(mortz)), fitted(sine2cos2trendmodel),
+      col='green', lwd=2)
+legend('topright', c('Data', 'Model'), col=c('black', 'green'), lwd=2)
+```
+
+Is the addition of variables `sin26` and `cos26` a statistically significant
+contribution to your model?
+
+```{r}
+drop1(sine2cos2trendmodel, test='F')
+```
+
+- The `drop1` command here shows whether any variables can be dropped from the linear regression model. A significant $p$ value suggests that a variable is important and should not be dropped.
+
+## Periodicity
+
+**Expected learning outcomes**
+
+By the end of this session, participants should be able to:
+
+- assess the existence of periodicity in the surveillance data using simple visual methods
+
+We already discussed how to check for periodicity by using sine and
+cosine curves. You can also check for seasonality graphically by
+grouping all week numbers together first (weeks 1 of all years together,
+weeks 2 of all years together etc) and then plotting the average number
+of deaths by week number; this would give you a graph with all average
+weekly numbers of deaths:
+
+```{r}
+mean1 <- aggregate(cases ~ week, mean, data=mortagg)
+mean2 <- mean(mortagg$cases)
+```
+
+Create a bar graph of the mean number of cases and the overall mean
+number of cases (y-axis) by time (x-axis):
+
+```{r}
+with(mean1, barplot(cases, names.arg=week,
+		    xlab='Week', ylab='Average cases', 
+		    main='Average cases by week number', col='blue'))
+abline(h=mean2, col='green', lwd=2)
+legend('bottomright', legend='Overall mean',
+       lwd=2, col='green', bg='white')
+```
+
+What do these results suggest?
+
+Plot the data with the fitted trend from the model:
+
+```{r}
+plot(mortz$cases, ylab='Mortality', main='Mortality with fitted trend')
+lines(as.vector(time(mortz)), fitted(linregmodel),
+      col='green', lwd=2)
+grid()
+legend('topright', c('Data', 'Model'), col=c('black', 'green'), lwd=2)
+```
+
+Residuals are the difference between your predicted and observed values.
+As you *may* remember from the linear regression lecture way back in the
+MVA module, small residuals are a sign of good model fit, as they
+mean that there is little difference between your model's
+predicted values and your observed data. Also, residuals in linear
+models are supposed to be normally distributed and not have a trend.
+
+Plot the residuals. 
+
+```{r}
+plot(as.vector(time(mortz)), residuals(linregmodel), type='l',
+     xlab='Index', ylab='Residuals')
+```
+
+- You can obtain residuals or fitted values from a model using the `residuals` or `fitted` functions respectively.
+- As the default is to plot points, we add `type='l'` to plot lines. 
+
+Create a bar graph of the mean residuals by week:
+
+```{r}
+mean_resid_by_week <- aggregate(list(x=residuals(linregmodel)),
+                                list(week=mortagg$week), mean)
+with(mean_resid_by_week, barplot(x, names.arg=week, 
+				 xlab='Week number', ylab='Mean of residuals', 
+				 col='blue'))
+```
+
+Regress the residuals on time and examine the predicted values of the model (seasonality):
+
+```{r}
+residtimemodel <-
+  lm(residuals(linregmodel) ~ 0 + factor(mortz$week))
+season <- fitted(residtimemodel)
+plot(as.vector(time(mortz)), season,
+     main='Note seasonality remains after estimated trend removed',
+     ylab='Residuals', xlab='Index')
+```
+
+- We know that the mean of the errors of the previous model is zero, so we ask R to assume the intercept of the current model is zero using the `0 +` part of the model formula above. 
+- We have used `factor` to tell R to regard week as a categorical variable rather than a numeric variable. 
+
+# Practical Session 4: Residuals
+
+**Expected learning outcomes**
+
+By the end of this session, participants should be able to:
+
+- decide on remaining actions when modelling surveillance data after
+you have accounted for trend and periodicity
+
+- detect autocorrelation in the residuals of models on surveillance data
+
+Plot the basic model with two sine and two cosine curves from Session 3:
+
+```{r}
+plot(mortz$cases, ylab='Mortality',
+     main='Regression model with trend plus 2 sine and cosine terms')
+lines(as.vector(time(mortz)), fitted(sine2cos2trendmodel),
+      col='green', lwd=2)
+legend('topright', c('Data', 'Model'), col=c('black', 'green'), lwd=2)
+```
+
+To assess whether there is any more periodicity in the data, one can either examine the estimated periodogram of the residuals, or plot the residuals against time.
+
+```{r}
+periodogram(residuals(sine2cos2trendmodel))
+```
+
+
+Check the normality of the residuals. Plot a histogram of residuals and also plot the normal distribution of the same mean and variance.
+
+```{r}
+res <- residuals(sine2cos2trendmodel)
+hist(res, probability=TRUE,
+     main='Histogram of model residuals plus normal curve',
+     xlab='Residuals', breaks=22)
+curve(dnorm(x, mean=mean(res), sd=sd(res)), add=TRUE,
+      col='green', lwd=2)
+```
+
+- To save typing we create the variable `res`, which contains the residuals from the model.
+- The `hist` command plots a histogram. We add the `probability=TRUE` option to show probability (strictly speaking *probability density*) on the y axis, and specify the desired number of breaks (to match the Stata plot).
+- The `curve` command plots curves of functions. What do `curve(sin(x), from=0, to=2*pi)` and `curve(cos(x), from=0, to=2*pi)` show? The `add=TRUE` option adds the curve to the previous plot rather than creating a new plot.
+- The `dnorm` function gives you the values to plot a normal distribution curve for a specified mean and standard deviation. 
+
+What does the plot suggest?
+
+Plot the residuals against the quantiles of a normal distribution using `qqnorm`:
+
+```{r qqnorm, fig.width=6}
+qqnorm(res)
+qqline(res)
+```
+
+- `qqnorm` plots a quantile-quantile plot. The `qqline` command adds a line to show the expected distribution of points if the data is normally distributed. 
+- The way the points curve upwards from the straight line on the right hand side is typical of positive skew, as seen in the histogram. 
+
+<!-- Note that the reference line looks slightly different in Stata -->
+
+Compute a normality test for the residuals using the Shapiro-Wilk test:
+
+```{r}
+shapiro.test(res)
+```
+
+- The Shapiro-Wilk test is a test for normality of a continuous variable. The $p$ value indicates whether to accept the null hypothesis of normality.[^swilk] 
+
+[^swilk]: The result should be interpreted in the light of the sample size and the shape of the histogram, as negligible deviations from normality may be significant with large sample sizes. 
+
+Comment on your findings.
+
+## Checking the homogeneity of the variances
+
+Plotting the residuals against the model (fitted values or predicted values) already gives indication of the
+variations of the variances with the level of the model. In addition we
+can use a mean-variance plot in order to better observe these
+variations. The mean and variance of each subgroup is then computed and plotted. To help, the R commands are given for the first plot, made on the raw data, to observe obvious variations.
+
+Plot a scatter plot of the residuals against the predicted values.[^diag]
+
+[^diag]: You can also use `plot(sine2cos2trendmodel, which=1)`, which will highlight outliers, or just `plot(sine2cos2trendmodel)` if you want all the standard diagnostic plots.
+
+Comment on your findings.
+
+```{r residpred, fig.width=6}
+fit <- fitted(sine2cos2trendmodel)
+plot(fit, res, ylab='Residuals', xlab='Predicted values',
+     main='Plot of residuals against predicted values')
+```
+
+## Mean-variance plot of the data and residuals
+
+The `meanvarplot` function below will plot the mean against the variance for a series of observations. Note that we have followed the Stata code in plotting the standard deviation rather than the variance. 
+
+```{r}
+meanvarplot <- function(x, groupnum=50, ...){
+  x <- as.vector(x)
+  x <- x[order(x)] 
+  group <- cut(1:length(x), breaks=groupnum, 
+               labels=0:(groupnum-1),  
+               include.lowest=TRUE,right=FALSE)
+  datf <- data.frame(group, x)
+  mcases <- aggregate(x ~ group, mean, data=datf)$x
+  vcases <- aggregate(x ~ group, sd, data=datf)$x 
+  plot(mcases, vcases, ...)
+  invisible(list(datf, mcases, vcases))
+}
+```
+
+```{r meanvarplot1, fig.width=6}
+meanvarplot(mortz$cases,
+            xlab='Means of groups', ylab='Variances of groups (sd plotted)',
+            main='Mean-variance plot of data')
+```
+
+What the function above does is:
+
+- Group the observations, ordered by their values, into 50 sequential groups of approximately equal size (50 is an arbitrary number).
+- Calculate the mean of each group of observations.
+- Calculate the standard deviation of each group of observations.
+- Plot the standard deviations against the means.
+- The last line of the function (`invisible` etc) just returns the results of the calculations as a list without printing them to the console, to allow you to use them for something else if you wanted to.
+
+Comment on your findings.
+
+You can repeat the plot for the residuals, using the same function. Compare to the previous plot.
+
+```{r meanvarplot2, fig.width=6}
+meanvarplot(res,
+            xlab='Means of groups', ylab='Variances of groups (sd plotted)',
+            main='Main-variance plot of residuals')
+```
+
+## Plotting the residuals against time
+
+Fit a linear regression model of the residuals on time.
+
+Plot the predictions against time. Discuss the plot.
+
+```{r}
+mortz <- merge(mortz, res)
+residtimemodel2 <-
+  lm(res ~ Date, data=mortz)
+plot(as.vector(time(mortz)), fitted(residtimemodel),
+     main='',
+     xlab='Index', ylab='Predictions')
+```
+
+## Check for autocorrelation[^acf]
+
+Graph the autocorrelation on 50 (week) lags. 
+
+[^acf]: Note that there are `acf` functions in more than one package, so to be sure you are using the using the base R function here use `stats::acf`.
+
+```{r}
+mortacf<- stats::acf(mortz$cases, lag.max=50, ci.type='ma',
+                    main='Autocorrelation plot of cases')
+legend('topright', legend=c('+/- 95% CI'), col='blue', lty=2, lwd=1)
+head(as.vector(mortacf$acf), 5)
+```
+
+- The `acf` command estimates and plots autocorrelations. The first vertical line is always 1, as it shows the correlation of each observation with itself (lag zero). The second vertical line shows the correlation between each observation and the observation just before it (lag one). The third shows the correlation between each observation and the observation before last (lag two). And so on. 
+- The blue dotted line is the 95% confidence interval. Vertical lines which reach above or below the confidence limits indicate significant autocorrelations. Note that by default R uses a different type of confidence interval for the ACF to Stata; to get a similar CI to Stata add the option `ci.type='ma'`. 
+- The final line of code prints out the values of ACF which are shown from lag zero.
+- If there was no autocorrelation, only the first vertical line would exceed the confidence interval. 
+- The pattern shown is of "slow decay" in autocorrelation. There is also possible evidence of periodicity.
+
+Graph the partial autocorrelation on 50 (week) lags.
+
+```{r}
+mortpacf <- pacf(mortz$cases, lag.max=50,
+                      main='Partial autocorrelation plot of cases')
+legend('topright', legend=c('+/- 95% CI'), col='blue', lty=2, lwd=1)
+head(as.vector(mortpacf$acf), 5)
+```
+
+- You can think of partial autocorrelations as autocorrelations adjusted for the autocorrelations in shorter lags using regression. So the partial autocorrelation for lag two is the autocorrelation at lag two adjusted for the autocorrelation at lag one. The partial autocorrelation at lag three is the autocorrelation at lag three adjusted for the autocorrelations at lag two and lag one.
+- The main feature of interest in this plot is the positive spike at lag one. There is nothing else to write home about.
+- The final line of code prints out the values of PACF which are shown from lag one.
+- Using ACF and PACF plots is a key part of model selection for ARIMA models, which are not covered in this course. Slow decay seen on the ACF plot and a spike seen on the PACF plot are clues to the particular ARIMA model which would account for serial dependence in the data.
+
+Test for significant autocorrelations in the residuals.
+
+```{r}
+Box.test(mortz$cases, type='Ljung-Box')
+```
+
+- The Ljung-Box (or "portmanteau") test examines the null hypothesis of independence (as opposed to autocorrelation) in a time series. A significant $p$ value suggests that there is autocorrelation in the data.
+
+## Check for periodicity remaining in the residuals
+ 
+First look at the sample autocorrelations.
+
+```{r}
+resACF <- acf(res, lag.max=50, ci.type='ma', 
+              main='Autocorrelation plot')
+legend('topright', legend=c('+/- 95% CI'), col='blue', lty=2, lwd=1)
+head(as.vector(resACF$acf), 5)
+```
+ 
+Then examine the sample partial autocorrelations.
+
+```{r}
+resPACF <- pacf(res, lag.max=50,
+                main='Partial autocorrelation plot of cases')
+legend('topright', legend=c('+/- 95% CI'), col='blue', lty=2, lwd=1)
+head(as.vector(resPACF$acf), 5)
+```
+
+What do you see? Is there any interesting pattern in the residuals that we need to account for?
+
+# Practical Session 5: Outbreak detection
+
+**Expected learning outcomes**
+
+By the end of this session, participants should be able to detect exceedances in surveillance data.
+
+## Part 1 
+
+Assess whether the reported number of cases observed in week 26 of 2008
+is unusual. First plot the complete time series and make a visual
+assessment of the last point.
+
+<!-- ? why the last point and not week 26 of 2008 -->
+
+```{r}
+plot(mortz$cases,
+     ylab='Weekly total cases', main='Mortality')
+abline(v=2008 + 26 / 52, lty=2)
+text(2008 + 26/52, 7000, 'Week 26 2008', pos=4)
+```
+
+There are 4,740 deaths reported in week 26 of 2008; this doesn't appear too
+unusual but it is not so easy to assess visually.
+
+Select the same week together with the two previous and two subsequent
+weeks (i.e. weeks 24, 25, 27 and 28) by generating an indicator variable
+called `historic` that takes the value `TRUE` for these weeks and `FALSE`
+otherwise. Plot these to see if this makes the visual assessment easier.
+
+```{r historic, fig.height=8}
+historic <- 
+  with(mortz, year < 2008 & (24 <= week & week <= 28))
+plot(mortz$cases, 
+      ylab='Weekly total cases', 
+      main='Mortality')
+points(as.vector(time(mortz)[historic]), 
+       mortz$cases[historic],
+       lwd=2, col='red')
+points(as.vector(time(mortz))[442], mortz$cases[442],
+       lwd=3, col='green')
+```
+
+- The `points` command plots points on an existing plot.
+
+Calculate the expected value for week 26 in 2008. Use the mean of cases
+from the same week, the previous two weeks and the subsequent two weeks
+of the previous years. Is this different from the number of death cases
+observed in this week in 2008?
+
+```{r}
+mu <- mean(mortz$cases[historic])
+mu
+```
+
+Is there any evidence of an increasing trend in the data used to obtain
+the expected value?
+
+```{r}
+trendmodel <- lm(cases ~ Date, data=mortz[historic])
+summary(trendmodel)
+```
+
+- Recall that we created the `Date` variable earlier.
+
+As there is no evidence of any temporal trend, fit a null model from
+which you need to calculate:
+
+- the expected (predicted) number of deaths in week 26 of 2008
+- the standard error of the expected number and the 95% confidence interval
+- the standard deviation and from this the 95% tolerance interval
+- the 95% prediction limit
+
+```{r}
+nullmodel <- lm(cases ~ 1, data=mortz[historic])
+summary(nullmodel)
+```
+
+- To fit a null model in R, that is, one with no predictor variables which is therefore only estimating the intercept (which represents the overall mean outcome), we use the `~ 1` notation as above.
+
+```{r}
+# 95% confidence interval
+ci <- predict(nullmodel, newdata=data.frame(1), interval='confidence')
+ci
+# Standard deviation of the residuals
+std <- summary(nullmodel)$sigma
+std
+# 95% prediction interval
+predint <- predict(nullmodel, newdata=data.frame(1),
+                   interval='prediction')
+predint
+# 95% tolerance interval
+tolint <- c(fit=mu, lwr=mu-1.96*std, upr=mu+1.96*std)
+tolint
+```
+
+- The `predict` command is here providing confidence and prediction intervals according to which `interval` option is specified. 
+- The optional `newdata` option is usually used to indicate data to be used in the prediction. Here there are no predictor variables and all that `data.frame(1)` is indicating is that we only want one prediction - otherwise R will by default assume we want a prediction for each point in the data used to fit the model (when all the predictions will be the same given the model specified). In this case the number given, 1, is arbitrary and any number would give the same result.
+- We obtain the standard deviation of the residuals from the `sigma` component of the results of the `summary` command.
+
+<!-- NB the Stata code here and possibly later needs amending - the correct code to get the confidence and prediction intervals is `adjust, ci level(95)` and `adjust, stdf ci level(95)`. Stata then gives the same results as R. -->
+
+Compare these intervals and plot the expected value and the 95% prediction interval on the time series.
+
+```{r predint, fig.height=8}
+plot(mortz$cases, 
+     ylab='Weekly total cases', main='Mortality')
+points(as.vector(time(mortz)[historic]), 
+       mortz$cases[historic],
+       lwd=2, col='red')
+points(as.vector(time(mortz))[442],
+       mortz$cases[442],
+       lwd=2, col='green')
+points(2008.5, mu, col='darkorange', lwd=2, pch=19)
+arrows(2008.5, predint[2], 2008.5, predint[3],
+         code=3, angle=90, col='darkorange', lwd=2)
+```
+
+- The `arrows` command plots lines with arrow heads. See the help file: `?arrows`. 
+- The `pch` option to `points` specifies the character which is plotted. See the help file for `points` to see the available options.
+
+It is advisable to check the residuals to ensure they approximate the
+normal distribution and that there is no evidence that they vary with time.
+
+```{r qqnorm2, fig.width=6}
+nullres <- residuals(nullmodel)
+qqnorm(nullres)
+qqline(nullres)
+shapiro.test(nullres)
+plot(as.vector(time(mortz))[historic], nullres,
+     xlab='Index', ylab='Residuals')
+```
+
+- To save typing we create the variable `nullres` to hold the residuals of the null model.
+
+NB: you can drop any variables you no longer need using `rm`.
+
+```{r rm, eval=FALSE}
+rm(mu, ci, std, predint, tolint, historic, nullres)
+```
+
+## Part 2
+
+Calculate the expected values and 95% prediction intervals for each week
+of 2009 from the historic data assuming that a simple linear regression
+model is appropriate using the data of the previous years.
+
+The function below creates a data frame containing three variables: `expected`, `lower_pi` and `upper_pi` and plots these results to see if there are any weeks in 2009 (the last 52 weeks in the data set) when the number of deaths appears high.
+
+```{r predintplot}
+predintplot <- function(tsdata, tsvar, num_periods, width,
+                        downweight=FALSE, 
+                        add=FALSE, ...) { 
+  if (width %% 2 == 0) stop('num_periods should be an odd number.')
+  results <- data.frame(expected = rep(NA, num_periods),  
+                        lower_pi = rep(NA, num_periods),  
+                        upper_pi = rep(NA, num_periods)) 
+  tsvar <- tsdata[, tsvar]
+  startpt <- length(tsvar) - num_periods + 1
+  endpt <- length(tsvar)
+  cycles <- as.numeric(cycle(tsvar))
+  oneside <- (width-1)/2
+  for (j in startpt:endpt){  
+    h <- cycles %in% cycles[(j-oneside):(j+oneside)]
+    h[startpt:endpt] <- FALSE
+    nullmodel <- lm(tsvar[h] ~ 1)
+    if(downweight){ 
+      stdres <- residuals(nullmodel) / sigma(nullmodel)
+      wts <- ifelse(stdres > 2, stdres^-2, 1)
+      nullmodel <- lm(tsvar[h] ~ 1, weights=wts)
+    }
+    results[j-startpt+1, ] <- predict(nullmodel,
+                                      newdata=data.frame(1),
+                                      interval='prediction')
+  }
+  if(!add){  
+    plot(tsvar[startpt:endpt],
+         type='l',
+         ylim=c(min(c(results$lower_pi, tsvar), na.rm=TRUE),
+                max(c(results$upper_pi, tsvar), na.rm=TRUE)),
+         ...)
+    legend('topleft',   
+           legend = c('Expected',   
+                      'Lower bound 95% prediction interval',   
+                      'Upper bound 95% prediction interval'),  
+           lwd=c(2, 1, 1),  
+           lty=c(1, 2, 2),  
+           col=c('red', 'green', 'orange')) 
+  }
+  lines(as.vector(time(tsvar))[startpt:endpt], results$lower_pi,
+        col='green', lty=2)
+  lines(as.vector(time(tsvar))[startpt:endpt], results$expected,
+        col='red', lwd=2)
+  lines(as.vector(time(tsvar))[startpt:endpt], results$upper_pi,
+        col='orange', lty=2)
+  results$observed <- as.vector(tsvar)[startpt:endpt]
+  invisible(results)
+}
+```
+
+```{r mortpred, fig.height=8}
+mortpred <- predintplot(mortz, 'cases', 52, 5, 
+                        ylab='Weekly total cases',
+                        main='Prediction intervals')
+mortpred[mortpred$observed > mortpred$upper_pi, ]
+```
+
+- To the function we provide a time series (`mortz`), the number of weeks at the end of the time series for which we require predictions (52 in this case; the preceding data is used to make the predictions), the width of the "window" of observations to make the predictions from (5 in this case; this should be an odd number and the code will check this), and some labels for the plot.
+- The function creates a data frame (`results`) to contain the final results.
+- For each point in the prediction data, the code fits a linear regression model of the mean number of deaths for the five week windows at the same point of the cycle across all years.
+- The `downweight` option is explained later. 
+- The remainder of the function code plots the resulting data. If `add=TRUE` is specified the results will be plotted onto an existing plot.
+- Note that you will have to ignore the warning from R: "Assuming constant prediction variance even though model fit is weighted".
+
+<!-- NB the Stata code does not seem to plot prediction intervals -->
+
+This shows that there is a week when the observed counts are above the upper 95% prediction limit, which could indicate excess mortality. What could cause this?
+
+## Part 3: Accounting for previous outbreaks by weighting the analysis
+
+The principle was developed by Farrington *et al* in order to be
+applied on the quasi-likelihood log-linear model used in the HPA.[^farrington] This
+is a method that is completely automated across a large number of series
+of reported pathogens each week. A feature of this method is that the
+observations in the historic data that appear unusual, i.e. low or high
+residuals, are downweighted. First an unweighted regression model is
+fitted and the standardised residuals are calculated. A weight is then
+computed using the standardised residuals. The larger the residuals, the
+less weight the observation is given in the analysis. The regression
+model is then refitted with the weights, in order to give less
+importance to the unusual observations. The larger the previous
+outbreak, the less it will influence the expected value from the
+prediction.
+
+[^farrington]: The Farrington and other exceedance algorithms are available in the `surveillance` package.
+
+We will apply a very simple weight which is $\frac{1}{\text{[standardised residual]}^2}$ if the standardised residual is larger than 2 and 1 otherwise.
+
+We can use the `predintplot` function again, with the `downweight=TRUE` option to apply downweighting to the regression. We use the `add=TRUE` option to add the prediction intervals for the downweighted regression to the previous plot. 
+
+```{r mortpred2, fig.height=8}
+predintplot(mortz, 'cases', 52, 5,  
+            ylab='Weekly total cases', 
+            main='Prediction intervals')
+mortpred2 <- predintplot(mortz, 'cases', 52, 5,
+                         downweight=TRUE, add=TRUE)
+mortpred2[mortpred2$observed > mortpred2$upper_pi, ]
+```
+
+
+# Practical Session 6: The relation between two time series
+
+**Expected learning outcomes**
+
+By the end of this session, participants should be able to:
+
+- assess and interpret associations with external variables
+
+- identify and interpret effect modification between external variables and the outcome variable in surveillance data
+
+Open the dataset **aragon.dta**. There you will find mean maximum
+temperature and mortality data for the autonomous community of Aragon by
+week.
+
+```{r}
+aragon <- read_dta('aragon.dta')
+```
+
+Convert the data to a time series and plot both variables (weekly mean maximum temperature and mortality data).
+
+```{r aragonz, fig.height=8}
+aragonz <- zooreg(aragon, start=c(2000, 1), frequency=52)
+plot(aragonz[, c('tmax', 'cases')],
+     main='Mean maximum temperature and mortality in Aragon')
+```
+
+Generate variables for sine and cosine for annual oscillation.
+
+```{r}
+aragonz$sinvar <- sin(2 * pi * aragonz$date / 52)
+aragonz$cosvar <- cos(2 * pi * aragonz$date / 52)
+```
+
+Fit a linear regression model with a simple trend to the weekly number
+of deaths, accounting for seasonality.
+
+```{r}
+aragmodel1 <- lm(cases ~ tmax + sinvar + cosvar + date,
+               data=aragonz)
+summary(aragmodel1)
+```
+
+<!-- . regress cases tmax sin cos date -->
+
+<!--       Source |       SS       df       MS              Number of obs =     520 -->
+<!-- -------------+------------------------------           F(  4,   515) =   82.34 -->
+<!--        Model |  136816.399     4  34204.0998           Prob > F      =  0.0000 -->
+<!--     Residual |  213920.445   515  415.379505           R-squared     =  0.3901 -->
+<!-- -------------+------------------------------           Adj R-squared =  0.3853 -->
+<!--        Total |  350736.844   519  675.793534           Root MSE      =  20.381 -->
+
+<!-- ------------------------------------------------------------------------------ -->
+<!--        cases |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval] -->
+<!-- -------------+---------------------------------------------------------------- -->
+<!--         tmax |   .7164274    .305796     2.34   0.020     .1156664    1.317188 -->
+<!--          sin |   10.48354    1.46343     7.16   0.000     7.608514    13.35857 -->
+<!--          cos |   28.33846   3.570444     7.94   0.000     21.32403    35.35289 -->
+<!--         date |    .024958   .0059723     4.18   0.000     .0132249    .0366911 -->
+<!--        _cons |   124.2069   15.50831     8.01   0.000     93.73962    154.6743 -->
+<!-- ------------------------------------------------------------------------------ -->
+
+Plot the predicted weekly number of deaths.
+
+```{r}
+plot(aragonz$cases, ylab='Cases',
+     main='Cases with fitted trend')
+lines(as.vector(time(aragonz)), fitted(aragmodel1),
+      col='green', lwd=2)
+```
+
+Discuss how your model fits the data.
+
+**NB!** When you plotted the weekly number of deaths in Aragon, perhaps
+you noticed that mortality peaks in winter; however, there are smaller
+peaks during the summer, too. You can account for that in two different
+ways: a) include two sine/cosine functions in the model (one for 52-week
+cycles and one for 26-week cycles), or b) take into account the fact
+that temperature might be behaving differently as a risk factor in
+winter than it does in summer (sign of effect modification?).
+
+You decide to perform your analysis twice; once for winter and once for
+the rest of the time. You define winter as the time between weeks 49 and
+8.
+
+```{r}
+aragonz$winter <- with(aragonz, week >= 49 | week <= 8)
+```
+
+- `|` means "or". `winter` will be 1 where week is greater than or equal to 49 **or** less than or equal to 8 (and 0 otherwise).
+
+First run the model including winter as a main effect, and then including an
+interaction term with temperature.
+
+```{r}
+aragmodel2 <- lm(cases ~ tmax + sinvar + cosvar + date + winter,
+               data=aragonz)
+summary(aragmodel2)
+```
+
+<!-- . reg cases tmax sin cos date winter -->
+
+<!--       Source |       SS       df       MS              Number of obs =     520 -->
+<!-- -------------+------------------------------           F(  5,   514) =   73.75 -->
+<!--        Model |  146515.938     5  29303.1877           Prob > F      =  0.0000 -->
+<!--     Residual |  204220.906   514  397.316938           R-squared     =  0.4177 -->
+<!-- -------------+------------------------------           Adj R-squared =  0.4121 -->
+<!--        Total |  350736.844   519  675.793534           Root MSE      =  19.933 -->
+
+<!-- ------------------------------------------------------------------------------ -->
+<!--        cases |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval] -->
+<!-- -------------+---------------------------------------------------------------- -->
+<!--         tmax |   .7040789   .2990838     2.35   0.019     .1165018    1.291656 -->
+<!--          sin |   9.354689   1.449379     6.45   0.000     6.507254    12.20212 -->
+<!--          cos |   22.16413   3.708816     5.98   0.000     14.87782    29.45043 -->
+<!--         date |   .0254117   .0058418     4.35   0.000      .013935    .0368883 -->
+<!--       winter |   14.53676   2.942121     4.94   0.000     8.756696    20.31682 -->
+<!--        _cons |   120.0567   15.19061     7.90   0.000     90.21337       149.9 -->
+<!-- ------------------------------------------------------------------------------ -->
+
+```{r}
+aragmodel3 <- lm(cases ~ sinvar + cosvar + date + winter * tmax,
+               data=aragonz)
+summary(aragmodel3)
+```
+
+
+<!-- . xi: reg cases tmax sin cos date winter i.winter*tmax -->
+<!-- i.winter          _Iwinter_0-1        (naturally coded; _Iwinter_0 omitted) -->
+<!-- i.winter*tmax     _IwinXtmax_#        (coded as above) -->
+<!-- note: _Iwinter_1 omitted because of collinearity -->
+<!-- note: tmax omitted because of collinearity -->
+
+<!--       Source |       SS       df       MS              Number of obs =     520 -->
+<!-- -------------+------------------------------           F(  6,   513) =   68.40 -->
+<!--        Model |  155879.794     6  25979.9656           Prob > F      =  0.0000 -->
+<!--     Residual |  194857.051   513  379.838305           R-squared     =  0.4444 -->
+<!-- -------------+------------------------------           Adj R-squared =  0.4379 -->
+<!--        Total |  350736.844   519  675.793534           Root MSE      =  19.489 -->
+
+<!-- ------------------------------------------------------------------------------ -->
+<!--        cases |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval] -->
+<!-- -------------+---------------------------------------------------------------- -->
+<!--         tmax |   1.526522   .3360866     4.54   0.000     .8662463    2.186797 -->
+<!--          sin |   11.81235   1.501099     7.87   0.000     8.863292    14.76141 -->
+<!--          cos |   30.87143    4.02811     7.66   0.000     22.95781    38.78505 -->
+<!--         date |   .0236061   .0057234     4.12   0.000      .012362    .0348502 -->
+<!--       winter |   51.00931   7.888969     6.47   0.000     35.51065    66.50797 -->
+<!--   _Iwinter_1 |          0  (omitted) -->
+<!--         tmax |          0  (omitted) -->
+<!-- _IwinXtmax_1 |  -3.203854   .6452748    -4.97   0.000     -4.47156   -1.936147 -->
+<!--        _cons |   106.5397   15.10016     7.06   0.000     76.87394    136.2055 -->
+<!-- ------------------------------------------------------------------------------ -->
+
+- Note that Stata suppresses some estimates from its output because of collinearity between variables. We can examine collinearity using the `vif` command from the `car` package on our model (variance-inflation factors above 10 indicate collinearity). 
+
+We show the models together for comparison in the table below.
+
+```{r mtable1, echo=FALSE}
+pander(mtable('Model 2' = aragmodel2,  
+              'Model 3' = aragmodel3, 
+              summary.stats=c('R-squared', 'adj. R-squared', 'AIC', 'BIC', 'N')), 
+       caption='Aragon models 2 and 3: estimate (SE)')
+```
+
+- Note that `winter * tmax` tells R to include terms in the model for `winter`, `tmax` and for their interaction. If we just wanted to include the interaction term without its corresponding "main effects", i.e. without `winter` or `tmax`, we would use `winter:tmax` instead.
+
+Discuss the output of the two models. Does the interpretation change
+when winter is taken into account as an interaction term along with
+temperature?
+
+It has been argued by experts that low temperatures in winter might be
+"slow killers"; that would mean that very low temperatures in winter do
+not result in a peak in mortality on the same day/week when they are
+observed, but rather after some time. On the other hand, very high
+temperatures in summer are fast killers; they are associated with peaks
+in mortality very fast, i.e. heat waves kill people fast.
+
+For this reason, you decide to check whether temperature has an effect on mortality with some lag.[^lag]
+
+[^lag]: `stats::lag` means use the `lag` function from the `stats` package. We specify this here to avoid possible conflicts with other packages which have a `lag` function. A basic R installation comes with a number of built-in packages, including `stats` (containing basic statistical functions), `graphics` (containing basic plotting commands), `utils` (containing various useful functions) and `datasets` (containing various data sets).
+
+```{r}
+L1.tmax <- stats::lag(aragonz$tmax, -1)
+aragonz <- merge(aragonz, L1.tmax)
+head(aragonz)
+```
+
+```{r}
+aragmodel4 <- lm(cases ~ sinvar + cosvar + date +  
+                   winter*tmax + L1.tmax, 
+                 data=aragonz)
+summary(aragmodel4)
+```
+
+<!-- . xi:reg cases tmax sin cos date winter i.winter*tmax L1.tmax -->
+<!-- i.winter          _Iwinter_0-1        (naturally coded; _Iwinter_0 omitted) -->
+<!-- i.winter*tmax     _IwinXtmax_#        (coded as above) -->
+<!-- note: _Iwinter_1 omitted because of collinearity -->
+<!-- note: tmax omitted because of collinearity -->
+
+<!--       Source |       SS       df       MS              Number of obs =     519 -->
+<!-- -------------+------------------------------           F(  7,   511) =   57.83 -->
+<!--        Model |    153279.6     7  21897.0858           Prob > F      =  0.0000 -->
+<!--     Residual |  193482.781   511  378.635579           R-squared     =  0.4420 -->
+<!-- -------------+------------------------------           Adj R-squared =  0.4344 -->
+<!--        Total |  346762.382   518  669.425447           Root MSE      =  19.459 -->
+
+<!-- ------------------------------------------------------------------------------ -->
+<!--        cases |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval] -->
+<!-- -------------+---------------------------------------------------------------- -->
+<!--         tmax |   1.602579   .3528135     4.54   0.000     .9094359    2.295723 -->
+<!--          sin |   11.14096   1.746218     6.38   0.000     7.710306    14.57161 -->
+<!--          cos |    29.2554   4.530292     6.46   0.000     20.35511    38.15569 -->
+<!--         date |   .0244566   .0057354     4.26   0.000     .0131887    .0357245 -->
+<!--       winter |   48.54623   7.982123     6.08   0.000     32.86442    64.22805 -->
+<!--   _Iwinter_1 |          0  (omitted) -->
+<!--         tmax |          0  (omitted) -->
+<!-- _IwinXtmax_1 |  -3.018707   .6516204    -4.63   0.000    -4.298891   -1.738522 -->
+<!--              | -->
+<!--         tmax | -->
+<!--          L1. |  -.2343109   .3148044    -0.74   0.457    -.8527811    .3841593 -->
+<!--              | -->
+<!--        _cons |   107.9715   15.76845     6.85   0.000     76.99251    138.9504 -->
+<!-- ------------------------------------------------------------------------------ -->
+
+- We are using the `lag` function from the in-built `stats` package. Today's value of `tmax` lagged by 1 is yesterday's value.
+- `L1.tmax` is also a `zoo` time series. We use the `merge` command to include it in the `aragonz` time series because this makes sure the time indices are aligned correctly.
+
+Instead of running the model with an interaction term, you could run the analyses for winter and the rest of your dataset separately.
+
+```{r}
+aragonz.winter <- aragonz[aragonz$winter %in% 1]
+aragonz.notwinter <- aragonz[!aragonz$winter %in% 1]
+```
+
+```{r aragmodel5, results='hide'}
+aragmodel5 <- lm(cases ~ tmax + sinvar + cosvar + date + L1.tmax,
+                  data=aragonz.winter)
+# includes 2 weeks' temperatures
+summary(aragmodel5)
+```
+
+<!-- . xi:reg cases tmax sin cos date L1.tmax if winter==1 -->
+
+<!--       Source |       SS       df       MS              Number of obs =     119 -->
+<!-- -------------+------------------------------           F(  5,   113) =    9.53 -->
+<!--        Model |  26735.9434     5  5347.18867           Prob > F      =  0.0000 -->
+<!--     Residual |  63407.9222   113  561.132055           R-squared     =  0.2966 -->
+<!-- -------------+------------------------------           Adj R-squared =  0.2655 -->
+<!--        Total |  90143.8655   118  763.931064           Root MSE      =  23.688 -->
+
+<!-- ------------------------------------------------------------------------------ -->
+<!--        cases |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval] -->
+<!-- -------------+---------------------------------------------------------------- -->
+<!--         tmax |  -.5865525   .7998992    -0.73   0.465    -2.171297     .998192 -->
+<!--          sin |   38.78978   7.788053     4.98   0.000     23.36024    54.21932 -->
+<!--          cos |   114.3157   32.96935     3.47   0.001     48.99745    179.6339 -->
+<!--         date |    .040351   .0149583     2.70   0.008     .0107159     .069986 -->
+<!--              | -->
+<!--         tmax | -->
+<!--          L1. |  -1.548575   .8421001    -1.84   0.069    -3.216928    .1197768 -->
+<!--              | -->
+<!--        _cons |   43.68471    55.2654     0.79   0.431    -65.80602    153.1754 -->
+<!-- ------------------------------------------------------------------------------ -->
+
+```{r aragmodel6, results='hide'}
+aragmodel6 <- lm(cases ~ sinvar + cosvar + date + L1.tmax,
+                  data=aragonz.winter)
+# includes only last week’s temperature
+summary(aragmodel6)
+```
+
+<!-- . xi:reg cases sin cos date L1.tmax if winter==1 -->
+
+<!--       Source |       SS       df       MS              Number of obs =     119 -->
+<!-- -------------+------------------------------           F(  4,   114) =   11.83 -->
+<!--        Model |  26434.2204     4   6608.5551           Prob > F      =  0.0000 -->
+<!--     Residual |  63709.6451   114  558.856536           R-squared     =  0.2932 -->
+<!-- -------------+------------------------------           Adj R-squared =  0.2684 -->
+<!--        Total |  90143.8655   118  763.931064           Root MSE      =   23.64 -->
+
+<!-- ------------------------------------------------------------------------------ -->
+<!--        cases |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval] -->
+<!-- -------------+---------------------------------------------------------------- -->
+<!--          sin |   38.41228   7.755247     4.95   0.000     23.04919    53.77536 -->
+<!--          cos |   118.3907   32.43164     3.65   0.000     54.14392    182.6376 -->
+<!--         date |   .0414553   .0148521     2.79   0.006     .0120335    .0708771 -->
+<!--              | -->
+<!--         tmax | -->
+<!--          L1. |   -1.73018   .8032249    -2.15   0.033    -3.321363   -.1389977 -->
+<!--              | -->
+<!--        _cons |    32.8781   53.15611     0.62   0.537    -72.42374    138.1799 -->
+<!-- ------------------------------------------------------------------------------ -->
+
+```{r aragmodel7, results='hide'}
+aragmodel7 <- lm(cases ~ tmax + sinvar + cosvar + date + L1.tmax,
+                  data=aragonz.notwinter)
+# includes 2 week's temperatures
+summary(aragmodel7)
+```
+
+<!-- . xi:reg cases tmax sin cos date L1.tmax if winter==0 -->
+
+<!--       Source |       SS       df       MS              Number of obs =     400 -->
+<!-- -------------+------------------------------           F(  5,   394) =   27.97 -->
+<!--        Model |  41661.6689     5  8332.33377           Prob > F      =  0.0000 -->
+<!--     Residual |  117389.609   394  297.943169           R-squared     =  0.2619 -->
+<!-- -------------+------------------------------           Adj R-squared =  0.2526 -->
+<!--        Total |  159051.277   399  398.624756           Root MSE      =  17.261 -->
+
+<!-- ------------------------------------------------------------------------------ -->
+<!--        cases |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval] -->
+<!-- -------------+---------------------------------------------------------------- -->
+<!--         tmax |   1.196939   .3220569     3.72   0.000     .5637743    1.830104 -->
+<!--          sin |   10.68001   1.672347     6.39   0.000     7.392172    13.96785 -->
+<!--          cos |   28.79849   4.180129     6.89   0.000     20.58035    37.01664 -->
+<!--         date |   .0205049   .0057848     3.54   0.000     .0091319    .0318779 -->
+<!--              | -->
+<!--         tmax | -->
+<!--          L1. |   .1821058    .321074     0.57   0.571    -.4491268    .8133384 -->
+<!--              | -->
+<!--        _cons |   116.8088   15.34511     7.61   0.000     86.64024    146.9773 -->
+<!-- ------------------------------------------------------------------------------ -->
+
+```{r aragmodel8, results='hide'}
+aragmodel8 <- lm(cases ~ tmax + sinvar + cosvar + date + L1.tmax,
+                  data=aragonz.notwinter)
+# includes only last week’s temperature
+summary(aragmodel8)
+```
+
+<!-- . xi:reg cases tmax sin cos date L1.tmax if winter==0 -->
+
+<!--       Source |       SS       df       MS              Number of obs =     400 -->
+<!-- -------------+------------------------------           F(  5,   394) =   27.97 -->
+<!--        Model |  41661.6689     5  8332.33377           Prob > F      =  0.0000 -->
+<!--     Residual |  117389.609   394  297.943169           R-squared     =  0.2619 -->
+<!-- -------------+------------------------------           Adj R-squared =  0.2526 -->
+<!--        Total |  159051.277   399  398.624756           Root MSE      =  17.261 -->
+
+<!-- ------------------------------------------------------------------------------ -->
+<!--        cases |      Coef.   Std. Err.      t    P>|t|     [95% Conf. Interval] -->
+<!-- -------------+---------------------------------------------------------------- -->
+<!--         tmax |   1.196939   .3220569     3.72   0.000     .5637743    1.830104 -->
+<!--          sin |   10.68001   1.672347     6.39   0.000     7.392172    13.96785 -->
+<!--          cos |   28.79849   4.180129     6.89   0.000     20.58035    37.01664 -->
+<!--         date |   .0205049   .0057848     3.54   0.000     .0091319    .0318779 -->
+<!--              | -->
+<!--         tmax | -->
+<!--          L1. |   .1821058    .321074     0.57   0.571    -.4491268    .8133384 -->
+<!--              | -->
+<!--        _cons |   116.8088   15.34511     7.61   0.000     86.64024    146.9773 -->
+<!-- ------------------------------------------------------------------------------ -->
+
+We show the models together for comparison below.
+
+```{r aragmodel5to8, echo=FALSE}
+pander(
+  mtable(
+  'Model 5' = aragmodel5,
+  'Model 6' = aragmodel6,
+  'Model 7' = aragmodel7,
+  'Model 8' = aragmodel8,
+  summary.stats=c('R-squared', 'adj. R-squared', 'AIC', 'BIC', 'N')), 
+  caption='Aragon models 5, 6, 7 and 8: estimate (SE)')
+```
+
+Discuss the output of the different models. Which one would you go for?
+
+# Practical Session 7: Assessing the impact of interventions using surveillance data
+
+**Expected learning outcomes**
+
+By the end of the case study, participants will be able to:
+
+- assess and interpret the effect of an intervention on trends
+and periodicity in surveillance data
+
+Rotavirus is a very common and potentially serious infection of the
+large bowel, mainly affecting young babies. Nearly every child will have
+at least one episode of rotavirus gastroenteritis by five years of age.
+People of any age can be affected, but the illness is more severe in
+young infants. The rotavirus immunisation programme was introduced in
+the UK on 1 July 2013 (week 27) with the objective of preventing a
+significant number of young infants from developing rotavirus infection.
+It may also provide some additional protection to the wider population
+through herd immunity. The aim of the rotavirus immunisation programme
+is to provide two doses of vaccine to infants from six weeks of age and
+before 24 weeks of age. The first dose of vaccine is offered at approximately eight weeks
+of age and the second dose at least four weeks after the first dose.
+
+High coverage was rapidly achieved for the first cohort of children
+offered rotavirus vaccine routinely in England and this has been
+maintained throughout the first fourteen months of the routine
+programme. Over this period, rotavirus vaccine coverage for children in
+the routine cohort averaged 93.3% for one dose and 88.3% for two doses.[^rota]
+
+[^rota]: Rotavirus infant immunisation programme 2014/15: Vaccine uptake report for England (Published: June 2015; PHE publications gateway number: 2015141)
+
+Open the **rotavirus** dataset, which is a line list of all notified
+rotavirus infections in the UK between June 2009 and December 2014.
+Prepare your data and test if the introduction of the vaccine has had an impact on the notified number of cases of rotavirus infections in the UK. Has the trend changed? Has the periodicity changed?
+
+Prepare the **rotavirus.dta** for time-series analysis. You need to manipulate the dataset before being able to use it for time series analysis.
+
+```{r}
+rota <- read_dta('rotavirus.dta')
+rota$case <- 1
+rota$year <- statawofd(rota$date)$year
+rota$week <- statawofd(rota$date)$week
+head(rota)
+```
+
+```{r}
+rota2 <- aggregate(case ~ agegrp + week + year, data=rota, sum)
+rota3 <- dcast(rota2, year + week ~ agegrp, value.var='case', sum)
+rota3$cases <- rowSums(rota3[, 3:7])
+names(rota3) <- c('year', 'week', 'cases <1 year', 'cases 1-4 years',
+                  'cases 5-14 years', ' cases 15-64 years', 
+                  'cases 65+ years', 'cases')
+head(rota3)
+rotaz <- zooreg(rota3, start=c(2009, 23), frequency=52)
+```
+
+- After reading in the **rotavirus** data, we create some new variables: `case` (a counter we will use for aggregation), `year` (the year) and `week` (the week according to Stata).
+- We then sum `case` for each combination of `agegrp`, `week` and `year` using `aggregate` as before.
+- We then use the `dcast` command from the `reshape2` package to reshape the data set from long to wide.[^melt] This also uses a formula: variables on the left hand side of the tilde will be on the left hand side of the reshaped data; the values of variables on the right hand side will be used to create new columns. Look at the reshaped data (`rota3`) to see how the formula relates to the result. 
+- `rowSums` allows us to add a total column for selected columns.
+- We then rename the columns of the reshaped data to match the Stata code.
+- Finally we create a time series from the reshaped data.
+
+[^melt]: The `melt` command from the same package reshapes from wide to long.
+
+Plot the total number of cases and the total number of cases by age
+group against time.
+
+```{r rotaz, fig.height=8}
+plot(rotaz[, 3:8], main='Rotavirus cases\n(note differing y scales)')
+```
+
+- Here we are plotting columns 3 to 8 of the `rota` time series. 
+- Note that you can get line breaks in labels using `\n`.
+
+State in your dataset when the vaccine was available.
+
+```{r}
+rotaz$vaccine <- 0
+window(rotaz$vaccine, start=c(2013, 27)) <- 1
+rotaz$Date <- with(rota3, stataweekdate(year, week))
+rotaz$sin52 <- sin(2 * pi * rotaz$Date / 52)
+rotaz$cos52 <- cos(2 * pi * rotaz$Date / 52)
+```
+
+- Here we are adding some variables to the `rotaz` time series.
+- `rotaz$vaccine` will be 0 for weeks before week 27 2013 and 1 thereafter. We use the `window` command to set the `vaccine` variable to 1 for the period after the introduction of the vaccine.
+- `rotaz$Date` will be the number of weeks since 1st January 1960.
+- We have also created sine and cosine variables so that we can model annual seasonality as before. 
+
+Run a separate model for the time before and after the introduction of
+the vaccine in England and Wales for infants aged <1 year of age. Can
+you detect any change in trend?
+
+```{r}
+rotamodel1 <- glm(`cases <1 year` ~ Date, 
+                  data=rotaz[rotaz$vaccine %in% 0, ],
+                  family='poisson')
+glmtidy(rotamodel1, 'Rotavirus model 1')
+glmstats(rotamodel1)
+```
+
+<!-- . poisson case1 week if week<tw(2013w27), irr -->
+
+<!-- Iteration 0:   log likelihood = -15334.185   -->
+<!-- Iteration 1:   log likelihood = -15334.185   -->
+
+<!-- Poisson regression                                Number of obs   =        212 -->
+<!--                                                   LR chi2(1)      =     643.57 -->
+<!--                                                   Prob > chi2     =     0.0000 -->
+<!-- Log likelihood = -15334.185                       Pseudo R2       =     0.0206 -->
+
+<!-- ------------------------------------------------------------------------------ -->
+<!--        case1 |        IRR   Std. Err.      z    P>|z|     [95% Conf. Interval] -->
+<!-- -------------+---------------------------------------------------------------- -->
+<!--         week |   1.002605   .0001032    25.27   0.000     1.002402    1.002807 -->
+<!--        _cons |   .1131925   .0312907    -7.88   0.000     .0658435    .1945907 -->
+<!-- ------------------------------------------------------------------------------ -->
+
+<!-- Standard errors are a bit different -->
+
+```{r}
+rotamodel2 <- glm(`cases <1 year` ~ Date, 
+                  data=rotaz[rotaz$vaccine %in% 1, ],
+                  family='poisson')
+glmtidy(rotamodel2, 'Rotavirus model 2')
+glmstats(rotamodel2)
+```
+
+<!-- . poisson case1 week if week>=tw(2013w27), irr -->
+
+<!-- Iteration 0:   log likelihood = -294.73727   -->
+<!-- Iteration 1:   log likelihood = -294.73727   -->
+
+<!-- Poisson regression                                Number of obs   =         76 -->
+<!--                                                   LR chi2(1)      =       3.08 -->
+<!--                                                   Prob > chi2     =     0.0792 -->
+<!-- Log likelihood = -294.73727                       Pseudo R2       =     0.0052 -->
+
+<!-- ------------------------------------------------------------------------------ -->
+<!--        case1 |        IRR   Std. Err.      z    P>|z|     [95% Conf. Interval] -->
+<!-- -------------+---------------------------------------------------------------- -->
+<!--         week |   .9981305   .0010644    -1.75   0.079     .9960465    1.000219 -->
+<!--        _cons |   4702.451   14135.08     2.81   0.005     12.99276     1701952 -->
+<!-- ------------------------------------------------------------------------------ -->
+
+We show the models together for comparison below. 
+
+```{r rotamodel1and2, echo=FALSE}
+pander(mtable('Rotavirus model 1'=rotamodel1, 
+              'Rotavirus model 2'=rotamodel2,  
+              getSummary=getSummary_expcoef, 
+              summary.stats=c('AIC', 'BIC', 'N')),
+       caption='Rotavirus models 1 and 2: estimate (SE)')
+```
+
+- Here we are fitting Poisson regression models using the `glm` (generalised linear models) command. We fit a separate model for each period.
+- As `glm` can do various different types of regression, we specify that we want Poisson regression by `family='poisson'`. Otherwise we specify the model as we did for linear regression.
+- Variable names in R should really only consist of letters, numbers and the dot or underline character and should normally begin with a letter. However if you do have column names which are not valid variable names, you can refer to them by surrounding the names with backticks, as we have done here.
+- If the `summary` command is used for a `glm` Poisson model, the log rate ratios are reported by default. The `glmtidy` function converts these to rate ratios. 
+- Note that the confidence intervals reported by R are "profile confidence intervals", so may differ slightly from those in Stata.
+
+We can detect a numerical change in trend for infants <1 year of age, but the two models cannot be compared.
+
+Run one single model for both periods (before/after the introduction of the vaccine), this time including seasonality.
+
+```{r}
+rotamodel3 <- glm(`cases <1 year` ~ Date + sin52 + cos52 + vaccine, 
+                  data=rotaz, family='poisson')
+glmtidy(rotamodel3, 'Rotavirus model 3')
+glmstats(rotamodel3)
+```
+
+<!-- . poisson case1 week sin52 cos52 vaccine, irr -->
+
+<!-- Iteration 0:   log likelihood = -3302.1644   -->
+<!-- Iteration 1:   log likelihood = -3267.7222   -->
+<!-- Iteration 2:   log likelihood = -3267.6227   -->
+<!-- Iteration 3:   log likelihood = -3267.6227   -->
+
+<!-- Poisson regression                                Number of obs   =        288 -->
+<!--                                                   LR chi2(4)      =   32485.67 -->
+<!--                                                   Prob > chi2     =     0.0000 -->
+<!-- Log likelihood = -3267.6227                       Pseudo R2       =     0.8325 -->
+
+<!-- ------------------------------------------------------------------------------ -->
+<!--        case1 |        IRR   Std. Err.      z    P>|z|     [95% Conf. Interval] -->
+<!-- -------------+---------------------------------------------------------------- -->
+<!--         week |   .9998151   .0001046    -1.77   0.077     .9996101     1.00002 -->
+<!--        sin52 |   5.271173   .0681012   128.66   0.000     5.139372    5.406353 -->
+<!--        cos52 |   1.242549   .0120741    22.35   0.000     1.219108    1.266441 -->
+<!--      vaccine |   .2729618   .0076689   -46.22   0.000     .2583374     .288414 -->
+<!--        _cons |   108.5609   30.40279    16.74   0.000     62.70357    187.9554 -->
+<!-- ------------------------------------------------------------------------------ -->
+
+```{r}
+plot(rotaz[, 'cases <1 year'],
+     main='Rotavirus cases <1 year: model 3',
+     ylab='Cases')
+lines(as.vector(time(rotaz)), fitted(rotamodel3),
+      col='green', lwd=2)
+```
+
+To be able to comment on any change in trend after the introduction of the vaccine, we need to include an interaction term in the model. 
+
+<!-- Should use ## not # for interactions in Stata code to get matching results -->
+
+```{r}
+rotamodel4 <- glm(`cases <1 year` ~ Date * vaccine + sin52 + cos52,  
+                  data=rotaz, family='poisson')
+glmtidy(rotamodel4, 'Rotavirus model 4')
+glmstats(rotamodel4)
+```
+
+<!-- . poisson case1 c.week##vaccine sin52 cos52, irr -->
+
+<!-- Iteration 0:   log likelihood = -3297.7556   -->
+<!-- Iteration 1:   log likelihood = -3261.2189   -->
+<!-- Iteration 2:   log likelihood = -3261.1222   -->
+<!-- Iteration 3:   log likelihood = -3261.1222   -->
+
+<!-- Poisson regression                                Number of obs   =        288 -->
+<!--                                                   LR chi2(5)      =   32498.67 -->
+<!--                                                   Prob > chi2     =     0.0000 -->
+<!-- Log likelihood = -3261.1222                       Pseudo R2       =     0.8329 -->
+
+<!-- -------------------------------------------------------------------------------- -->
+<!--          case1 |        IRR   Std. Err.      z    P>|z|     [95% Conf. Interval] -->
+<!-- ---------------+---------------------------------------------------------------- -->
+<!--           week |    .999834   .0001047    -1.58   0.113     .9996288    1.000039 -->
+<!--      1.vaccine |   5.67e+07   3.00e+08     3.37   0.001     1772.434    1.82e+12 -->
+<!--                | -->
+<!-- vaccine#c.week | -->
+<!--             1  |   .9932284   .0018653    -3.62   0.000     .9895792    .9968911 -->
+<!--                | -->
+<!--          sin52 |    5.27845   .0683213   128.53   0.000     5.146227    5.414071 -->
+<!--          cos52 |   1.240001   .0120629    22.11   0.000     1.216582    1.263871 -->
+<!--          _cons |   103.0986   28.91349    16.53   0.000     59.50281    178.6356 -->
+<!-- -------------------------------------------------------------------------------- -->
+
+Have there been any changes in seasonality, too? 
+
+```{r}
+rotamodel5 <- glm(`cases <1 year` ~ vaccine * (sin52 + cos52 + Date),
+                  data=rotaz, family='poisson')
+glmtidy(rotamodel5, 'Rotavirus model 5')
+glmstats(rotamodel5)
+```
+
+- Note how we can use brackets to introduce interaction terms for several variables. 
+
+<!-- . poisson case1 c.sin52##vaccine c.cos52##vaccine c.week##vaccine, irr -->
+
+<!-- Iteration 0:   log likelihood = -2264.4063   -->
+<!-- Iteration 1:   log likelihood = -2263.8316   -->
+<!-- Iteration 2:   log likelihood = -2263.8315   -->
+
+<!-- Poisson regression                                Number of obs   =        288 -->
+<!--                                                   LR chi2(7)      =   34493.25 -->
+<!--                                                   Prob > chi2     =     0.0000 -->
+<!-- Log likelihood = -2263.8315                       Pseudo R2       =     0.8840 -->
+
+<!-- --------------------------------------------------------------------------------- -->
+<!--           case1 |        IRR   Std. Err.      z    P>|z|     [95% Conf. Interval] -->
+<!-- ----------------+---------------------------------------------------------------- -->
+<!--           sin52 |    6.62953   .0984453   127.38   0.000     6.439362    6.825314 -->
+<!--       1.vaccine |    56.7341   181.7822     1.26   0.208     .1062923    30282.13 -->
+<!--                 | -->
+<!-- vaccine#c.sin52 | -->
+<!--              1  |    .197139   .0071604   -44.71   0.000     .1835928    .2116848 -->
+<!--                 | -->
+<!--           cos52 |   1.279981   .0132998    23.76   0.000     1.254178    1.306316 -->
+<!--                 | -->
+<!-- vaccine#c.cos52 | -->
+<!--              1  |   .7837704   .0273419    -6.98   0.000     .7319722     .839234 -->
+<!--                 | -->
+<!--            week |   .9996261   .0001051    -3.56   0.000     .9994203    .9998321 -->
+<!--                 | -->
+<!--  vaccine#c.week | -->
+<!--              1  |   .9982961   .0011352    -1.50   0.134     .9960736    1.000524 -->
+<!--                 | -->
+<!--           _cons |   155.0557   43.61074    17.93   0.000       89.347    269.0887 -->
+<!-- --------------------------------------------------------------------------------- -->
+
+```{r}
+linearHypothesis(rotamodel5,
+                 c('vaccine:sin52', 'vaccine:cos52'))
+```
+
+- We use the `linearHypothesis` command from the `car` package to test the hypothesis that the estimates for two of the interaction terms are both zero.
+
+# Practical Session 9: Estimating the sensitivity of surveillance systems: capture recapture studies
+
+**Expected learning outcomes**
+
+By the end of the case study, participants will be able to:
+
+*	discuss the assumptions behind the capture-recapture methodology in evaluating surveillance systems
+*	prepare a dataset for a capture-recapture analysis
+*	calculate the sensitivity of a surveillance system applying the capture-recapture methodology with 2 or 3 surveillance data sources
+
+## Part one – Capture-recapture studies with two sources: Salmonellosis 
+
+Salmonellosis is a mandatorily notifiable disease in your country and it is one of the most frequently reported diseases of the National Mandatory Notification System. Notification rates have gradually decreased from 14 cases per 100,000 inhabitants in 2005 to 2.8 cases per 100,000 inhabitants in 2015.
+It is Monday morning and your boss asks you to estimate the sensitivity of the National Salmonellosis Surveillance system (NSSS).  
+
+*Task 9.1:* What information do you need at this stage?
+
+## Help for Task 9.1
+
+Discussing this request with your colleagues, you found out that the system had not been evaluated at national level, but some studies performed at regional level suggested underreporting. There is a need for an evaluation of the system’s sensitivity.
+You also learnt that it is mandatory for all physicians in your country to report salmonellosis cases to the local public health authorities on paper forms and the latest notify to the National Public health Institute via fax. The notification form contains the name and demographic characteristics of cases (sex, date of birth, place of residence), clinical symptoms, laboratory data and the possible epidemiological link with other cases.  
+
+Data entry takes place and the national level and notified cases are classified according to the 2008 EU definitions (Commission Decision 2008/426/EC), as follows:
+
+*	Clinical criteria: Any person with at least one of the following four: diarrhoea , fever, abdominal pain or vomiting
+
+*	Laboratory criteria: Isolation of Salmonella (other than S. Typhi and S. Paratyphi) from stool or blood
+
+*	Epidemiological criteria. At least one of the following five epidemiological links: human-to-human transmission, exposure to a common source, animal-to-human transmission, exposure to contaminated food/drinking water or environmental exposure
+
+*	Case classification:  
+   + Probable case: any person meeting the clinical criteria who also has an epidemiological link         + Confirmed case: any person meeting both the clinical and the laboratory criteria
+
+You asked for the laboratory information and you found that the serotypes of Salmonella are monitored via the National Reference Laboratory for Salmonella (NRLS). All microbiological laboratories send isolates to the NRLS accompanied by a short form that includes the name and demographics (sex, date of birth, region) of the patient, and the date of specimen collection. Public hospitals are requested to send all isolates to the NRLS.
+
+The capture-recapture methodology will allow you to estimate the total number of cases of salmonellosis in your country, as well as the sensitivity and the positive predictive value of the surveillance system.
+
+*Task 9.2:* What case definition will you use? What are the assumptions of this methodology?
+
+## Help for Task 9.2
+
+You will estimate the sensitivity of the NSSS using the NRLS as your second source of information. You will select the confirmed cases (any person meeting the clinical and the laboratory criteria) notified to the NSSS in 2014 and all the cases included in the NRLS in the same year.  
+
+Since you know the information these systems include, you know that you will be able to match the individuals. Including confirmed cases you are sure that every individual has the same probability of being captured by both sources. But there might be dependence between sources since in hospitals cases reported to MNS will be likely to be found in the NRLSS.  
+
+At this point you have all the information you need in two Excel sheets that you can find in salmonella.xls.  
+
+*Task 9.3:* What is the sensitivity of the NSSS? How do you interpret this information?
+
+## Help for Task 9.3
+
+* Fill out the 2 x 2 dummy table in the STATA companion to help guide your answer.
+
+* Sensitivity = a/(a+c) where:
+   + a = number of records in both data sets
+   + b = number of records in data set to calculate the sensitivity for
+   + c = number of records in reference data set
+
+To begin, load libraries and functions:
+
+```{r}
+# Load relevant packages:
+required_packages <- c('broom', 'car', 'ggplot2', 'haven', 
+                       'ISOweek', 'lubridate', 'MASS', 'pander',  
+                       'readxl', 'reshape2', 'TSA', 'zoo')
+for(i in seq(along = required_packages))
+  library(required_packages[i], character.only = TRUE)
+
+# Function to create Stata weekly date
+stataweekdate <- function(year, week){
+  (year - 1960) * 52 + week - 1
+}
+
+# Function to create Stata year and week numbers
+statawofd <- function(date){
+  if(!is.Date(date)) stop('date should be a Date.')
+  dateposix <- as.POSIXlt(date)
+  dayofyear <- dateposix$yday
+  week <- floor(dayofyear/7) + 1
+  week[week %in% 53] <- 52
+  year <- dateposix$year + 1900
+  list(year=year, week=week)
+}
+
+# Function to tidy glm regression output
+glmtidy <- function(x, caption=''){ 
+  pander(tidy(x, exponentiate=TRUE, conf.int=TRUE),
+         caption=caption)
+}
+
+# Function to tidy glm regression statistics
+glmstats <- function(x){
+  pander(glance(x))
+}
+
+# Set your working directory to the sub-folder for practical 9:
+setwd("./Practical sessions/P09 - Sensitivity and PPV")
+```
+
+The data is provided in two worksheets in a .xlsx file, called 'NSSS' and 'NRLS'.  The data can be imported into R with the read_excel function from the readxl package:
+
+```{r}
+nsss <- read_excel(path = 'salmonella.xlsx', sheet = 'NSSS')
+nrls <- read_excel(path = 'salmonella.xlsx', sheet = 'NRLS')
+```
+
+Review the structure of the two datasets:
+
+```{r}
+str(nsss)
+str(nrls)
+```
+
+To see how many cases are represented in both datasets, the datasets need to be merged. To facilitate the merge, create a unique 'id' column by pasting together name and date of birth.  Patient date of birth is provided in three separate columns; these can first be merged and converted to date format.
+
+```{r}
+nsss$dob <- as.Date(paste0(nsss$year, "-", nsss$month, "-", nsss$day), format = "%Y-%m-%d")
+nrls$dob <- as.Date(paste0(nrls$year, "-", nrls$month, "-", nrls$day), format = "%Y-%m-%d")
+
+# Check that the date conversions have worked correctly:
+summary(nsss)
+summary(nrls)
+```
+
+Note: using `r paste0` rather than `r paste` ensures no spaces between the concatenated YYYY-mm-dd format (if there are spaces between the date elements the conversion will not work).  This is equivalent to `r paste(..., sep = "")`, but slightly more efficient.
+
+The summary shows that one date in the NSSS dataset has failed to convert (there is missing value in the dob column). Subset the data to view the problem date:
+
+```{r}
+View(subset(nsss, is.na(dob), select = c("ID-NSSS", "day", "month", "year", "dob")))
+```
+
+The date has failed to convert because it does not exist (likely a typographic error); 2010 was not a leap year, so there were only 28 days in February. To correct the date to **28** February 2010, proceed as below, repeating the date conversion and use `r summary` to confirm that the problem has been resolved:
+
+```{r}
+nsss$day[ is.na(nsss$dob)] <- 28
+nsss$dob <- as.Date(paste0(nsss$year, "-", nsss$month, "-", nsss$day), format = "%Y-%m-%d")
+summary(nsss)
+```
+
+To complete creation of the unique identifier, paste name and date of birth together in a new column and review it:
+
+```{r}
+nsss$id <- paste0(nsss$name, "_", nsss$dob)
+nrls$id <- paste0(nrls$name, "_", nrls$dob)
+
+head(nsss$id)
+head(nrls$id)
+
+table(is.na(nsss$id))
+table(is.na(nrls$id))
+```
+
+Note: this is a very simple example of record linkage. For more complex cases (e.g. full names that may be spelt differently or personal identifiers that may be missing):
+* the stringi package can be used to match names with soundex codes or levenshtein distance
+* the RecordLinkage package has additional options, including probabalistic matching
+
+A review of the variables in both data sets shows that both have columns with the same name except for the data set-specific ID columns.  However, the variable 'case' contains different values in the two data sets, which will result in all the duplicated columns being copied when the two data sets are merged.  To avoid this, rename the 'case' column in one of the data sets:
+
+```{r}
+colnames(nrls)[6] <- "labresult"
+```
+
+The datasets can now be merged into a data set called 'twosources':
+
+```{r}
+twosources <- merge(nsss, nrls, all = TRUE)
+```
+
+If desired, the number of records that are unique to each dataset can be calculated and cross-referenced with the merged data set as below:
+
+```{r}
+# Function to negate %in%
+`%!in%` = Negate(`%in%`) 
+
+# How many cases are notified to NSSS that don't have matching lab results in NRLS?
+length(nsss$id[nsss$id %!in% nrls$id])
+
+# How many cases have lab results in NRLS that don't have matching notifications in NSSS?
+length(nrls$id[nrls$id %!in% nsss$id])
+```
+
+The merged data set may contain duplicates.  To check this and remove any that are identified, proceed as below:
+
+```{r}
+# First sort the data set by id:
+twosources <- twosources[order(twosources$id),]
+
+# Then create a logical column to indicate if any rows are duplicates:
+twosources$dup <- duplicated(twosources$id)
+
+# Check to see if there are any duplicates:
+table(twosources$dup)
+
+# If any are identified, remove them by subsetting the data with 'dup == FALSE':
+twosources <- subset(twosources, twosources$dup == FALSE)
+```
+
+Note: duplicates will be removed in sequential order.  If it is necessary to keep records that meet certain criteria (e.g. that are duplicates by ID but have different specimen dates), include the relevant variables in the sorting step as well.  
+
+If desired, a 2 x 2 table can be created using `r dcast` from the reshape2 or data.table packages.  The example below illustrates how to construct a table using the data.table package, as the syntax is more efficient (no need to type variable names).
+
+```{r}
+# Create logical columns indicating if each record is included in one or both datasets:
+twosources$nsss <- ifelse(!is.na(twosources$`ID-NSSS`), "NSSS_true", "NSSS_false")
+twosources$nrls <- ifelse(!is.na(twosources$IDNRLS), "NRLS_true", "NRLS_false")
+
+# Install and load the data.table package:
+install.packages('data.table')
+library(data.table)
+
+# Create the table with dcast:
+twosources <- data.table(twosources)
+my2by2 <- dcast(twosources, nsss ~ nrls, fun.aggregate = length, fill = 0, value.var = "id")
+
+# Add row margin totals:
+sumcols <- names(my2by2)[2:length(names(my2by2))] # select numeric columns only to sum
+my2by2[, Total := Reduce(`+`, .SD), .SDcols = sumcols] # add them together to produce totals
+
+# Add column margin totals:
+sumcols <- names(my2by2)[2:length(names(my2by2))]
+coltotals <- my2by2[, lapply(.SD, sum, na.rm = TRUE), .SDcols = sumcols]
+coltotals[, nsss := "Total"]
+setcolorder(coltotals, names(my2by2))
+
+# Append column totals to the summary table:
+my2by2 <- rbind(my2by2, coltotals)
+
+```
+
+Sensitivity for each data set (using the other set as a reference) can be calculated by extracting the relevant summary counts and incorporating them into the formula described at the beggining of this section.
+
+```{r}
+both <- nrow(subset(twosources, nsss == "NSSS_true" & nrls == "NRLS_true"))
+NSSSonly <- nrow(subset(twosources, nsss == "NSSS_true" & nrls == "NRLS_false"))
+NRLSonly <- nrow(subset(twosources, nsss == "NSSS_false" & nrls == "NRLS_true"))
+
+# Sensitivity of the NSSS (NRLS is the reference):
+NSSS_sens <- (both/(both + NRLSonly))*100
+
+# Sensitivity of the NRLS (NRLS is the reference):
+NRLS_sens <- (both/(both + NSSSonly))*100
+```
+
+
+## Part 2 – Capture-recapture studies with three sources: Tuberculosis 
+
+After your unprecedented success in calculating the system’s sensitivity, you are now requested to estimate the sensitivity of the tuberculosis (TB) surveillance system in your country.  
+
+The reporting of TB is mandatory and every practising physician has to report suspected cases to the National Tuberculosis Surveillance System (NTSS); that is a passive surveillance system normally used for the purpose of planning and evaluating public health services. For every suspected case, a sputum sample is sent to the National Tuberculosis Reference laboratory (NTRL) for confirmation and information on positive results is sent to the NTSS. For treatment, all patients are referred to the hospital.  
+
+You will start evaluating the information provided by one of the country’s regions and focus on pulmonary tuberculosis diagnosed between 2012-2014.  
+
+*Task 9.4:* Discuss how the capture-recapture assumptions apply considering these sources of information (no help provided).  
+
+You will estimate the sensitivity of the NTSS comparing with the NTRL and the hospital treatment registry as sources of information. You will select all the pulmonary TB cases with laboratory confirmation from the RTSS diagnosed between 2012-2014, all bacteriologically confirmed pulmonary TB registered in NTRL and all patients that started treatment in the same period, assuming no delays in commence of treatment).  
+
+You have all the information you need in one Stata file (threesources.dta).  
+
+*Task 9.5:* What is the sensitivity of the NTSS? How do you interpret this information?  
+
+## Help for Task 9.5  
+
+Import threesources.dta into R with the `r haven` package and browse it to be familiar with the information you need for this type of analysis. You only need to know which individuals selected according to the case definition are included in each source.
+
+```{r}
+threesources <- read_dta("threesources.dta")
+```
+
+The STATA help companion uses the user-defined ado package 'recap' to create and compare the models of sensitivity with different assumptions about the relatedness of the three data sets.  The package also estimates the number of cases that may have been missed by all three data sets and computes Akaike's information criterion (AIC) and Bayesian information criterion (BIC) which can be used to compare the models and determine which has the best fit.
+
+In R, several packages have been developed to handle capture-recapture data.  These are traditionally used for ecological data, but the principal is the same.  The R package with the closest functionality to the recap STATA ado package is called `r Rcapture`.  
+
+Note: Rcapture uses a similar, but not identical approach; both use log-linear methods to fit a poisson model to the data.  Howver, some of the inherent model parameters may be different; the examples below are a guide only.  If desired, further details on the recap methods can be obtained by exploring STATA help; the model parameters below can then be adjusted to obtain equivalent results with Rcapture.  
+
+Case population estimates will be comparable with both packages, but AIC and BIC values may be different.  The examples shown here are based on the HIV example included in the Rcapture package.
+
+To create the models with Rcapture, proceed as below:
+
+```{r}
+# Install and load the Rcapture package:
+install.packages('Rcapture')
+library(Rcapture)
+
+# Remove ID column before creating the models (input should be a matrix):
+tb <- subset(threesources, select = c("ntss", "ntrl", "hospital"))
+```
+
+In the first model, all three data sources are assumed to be independent of each other.  Construct this model with standard formula notation using the `r closedPCI` function (for closed populations, with confidence intervals):
+
+```{r}
+m1 <- closedpCI.t(tb, dfreq = FALSE, mX = ~ ., mname = "All independent") # create the model
+m1 # View the results
+summary(m1$fit)$coefficients # View p values for the specified interactions
+```
+
+This process can be repeated for each mix of dependencies:
+
+```{r}
+# Create the second model (dependency between sources A-B)
+m2 <- closedpCI.t(tb, dfreq = FALSE, mX = ~ (c1 * c2) + c3, mname = "AB dependent")
+m2
+summary(m2$fit)$coefficients
+
+# Create the third model (dependency between sources A - C)
+m3 <- closedpCI.t(tb, dfreq = FALSE, mX = ~ (c1 * c3) + c2, mname = "AC dependent")
+m3
+summary(m3$fit)$coefficients
+
+# Create the fourth model (dependency between sources B - C)
+m4 <- closedpCI.t(tb, dfreq = FALSE, mX = ~ (c2 * c3) + c1, mname = "BC dependent")
+m4
+summary(m4$fit)$coefficients
+
+# Create the fifth model (dependency between sources AB and AC)
+m5 <- closedpCI.t(tb, dfreq = FALSE, mX = ~ (c1 * c2) + (c1 * c3), mname = "AB and AC dependent")
+m5
+summary(m5$fit)$coefficients
+
+# Create the sixth model (dependency between sources AB and BC)
+m6 <- closedpCI.t(tb, dfreq = FALSE, mX = ~ (c1 * c2) + (c2 * c3), mname = "AB and BC dependent")
+m6
+summary(m6$fit)$coefficients
+
+# Create the seventh model (dependency between sources AC and BC)
+m7 <- closedpCI.t(tb, dfreq = FALSE, mX = ~ (c1 * c3) + (c2 * c3), mname = "AC and BC dependent")
+m7
+summary(m7$fit)$coefficients
+
+# Create the eighth model (total dependency)
+m8 <- closedpCI.t(tb, dfreq = FALSE, mX = ~ (c1 * c2 * c3), mname = "All dependent")
+m8
+summary(m8$fit)$coefficients
+```
+
+The Rcapture package alternately facilitates the use of summary tables to construct the models (equivalent to the `r collapse` step in STATA).  To test this, proceed as below:
+
+```{r}
+# Create the summary table:
+tbs <- dcast(data.table(threesources), ntss + ntrl + hospital ~ ., fun.aggregate = length, value.var = "uniqueid")
+setnames(tbs, ".", "Freq")
+
+# Get the descriptive summary:
+desc <- descriptive(tbs, dfreq = TRUE)
+
+# Create the first model (results for sm1 should be identical to m1):
+sm1 <- closedpCI.t(tbs, dfreq = TRUE, mX = ~ (c1 + c2 + c3), mname = "All independent")
+sm1
+summary(sm1$fit)$coefficients
+```
+
+###################################
+
+# Useful resources
+
+Most textbooks on time series analysis assume a good mathematical background. The following links are somewhat easier.
+
+<http://a-little-book-of-r-for-time-series.readthedocs.io/en/latest/src/timeseries.html#time-series-analysis>
+
+<http://www.statmethods.net/advstats/timeseries.html>
+
+<https://onlinecourses.science.psu.edu/stat510/node/41>
+
+<https://www.analyticsvidhya.com/blog/2015/12/complete-tutorial-time-series-modeling/>
+
+<https://www.otexts.org/fpp>
+

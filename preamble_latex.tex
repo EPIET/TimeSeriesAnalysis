@@ -1,0 +1,11 @@
+\usepackage{todonotes}
+\usepackage{fancyhdr}
+\usepackage{palatino}
+\pagestyle{fancy}
+\usepackage{ifthen}
+\usepackage{everypage}
+\AddEverypageHook{ \ifthenelse{\value{page}=1} {\fancyhead[R]{} \renewcommand\headrule{}}}
+\setlength{\parskip}{1.2ex}
+\setlength{\parindent}{0em}
+\clubpenalty = 10000
+\widowpenalty = 10000
